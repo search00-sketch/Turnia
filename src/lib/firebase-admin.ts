@@ -1,5 +1,6 @@
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
+import { getFirestore, type Firestore } from "firebase-admin/firestore";
 
 // El SDK de administración corre sólo en el servidor (Node.js), nunca en el navegador
 // ni en middleware (que corre en el runtime Edge, sin soporte para este SDK).
@@ -27,4 +28,18 @@ function getAdminApp(): App {
 
 export function getAdminAuth() {
   return getAuth(getAdminApp());
+}
+
+let dbInstance: Firestore | undefined;
+
+export function getAdminDb(): Firestore {
+  if (!dbInstance) {
+    dbInstance = getFirestore(getAdminApp());
+    // Los Server Actions pasan campos opcionales como `undefined` (vía Zod
+    // `.optional()`) cuando el usuario no los completó. Sin esto, Firestore
+    // tira error al escribir un `undefined`. Con esto, el campo se omite del
+    // write (no se toca), igual que hace Prisma con `undefined` en `update`.
+    dbInstance.settings({ ignoreUndefinedProperties: true });
+  }
+  return dbInstance;
 }
