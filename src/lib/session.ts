@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { getAdminAuth } from "./firebase-admin";
-import { prisma } from "./prisma";
+import { getUserByUid } from "./db/users";
+import { getBusinessByOwnerId } from "./db/businesses";
 import { SESSION_COOKIE_NAME, SESSION_COOKIE_MAX_AGE_MS } from "./session-constants";
 
 export { SESSION_COOKIE_NAME, SESSION_COOKIE_MAX_AGE_MS };
@@ -12,11 +13,10 @@ export async function getCurrentUser() {
 
   try {
     const decoded = await getAdminAuth().verifySessionCookie(sessionCookie, true);
-    const user = await prisma.user.findUnique({
-      where: { firebaseUid: decoded.uid },
-      include: { business: true },
-    });
-    return user;
+    const user = await getUserByUid(decoded.uid);
+    if (!user) return null;
+    const business = await getBusinessByOwnerId(user.id);
+    return { ...user, business };
   } catch {
     return null;
   }
