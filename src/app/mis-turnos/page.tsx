@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireClientUser } from "@/lib/session";
-import { prisma } from "@/lib/prisma";
+import { getAppointmentsForClient, hydrateForClient } from "@/lib/db/appointments";
 import { formatDateLong, formatPrice, formatTime } from "@/lib/format";
 import CancelAppointmentButton from "@/components/cancel-appointment-button";
 
@@ -25,19 +25,8 @@ export default async function MisTurnosPage() {
   const user = await requireClientUser();
   if (!user) redirect("/login?callbackUrl=/mis-turnos");
 
-  const rawAppointments = await prisma.appointment.findMany({
-    where: { clientId: user.id },
-    include: { business: true, service: true, professional: true },
-    orderBy: { startsAt: "desc" },
-  });
-
-  // business/service/professional siempre vienen incluidos por el include de arriba.
-  const appointments = rawAppointments.map((a) => ({
-    ...a,
-    business: a.business!,
-    service: a.service!,
-    professional: a.professional!,
-  }));
+  const rawAppointments = await getAppointmentsForClient(user.id);
+  const appointments = await hydrateForClient(rawAppointments);
 
   const now = new Date();
   const upcoming = appointments

@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { getBusinessBySlug } from "@/lib/db/businesses";
+import { getServicesByBusiness } from "@/lib/db/services";
+import { getProfessionalsByBusiness } from "@/lib/db/professionals";
 import { getCurrentUser } from "@/lib/session";
 import BookingWizard from "@/components/booking-wizard";
 
@@ -11,21 +13,14 @@ interface Props {
 }
 
 export default async function ReservarPage({ params, searchParams }: Props) {
-  const [business, user] = await Promise.all([
-    prisma.business.findUnique({
-      where: { slug: params.slug },
-      include: {
-        services: { where: { active: true }, orderBy: { name: "asc" } },
-        professionals: { where: { active: true } },
-      },
-    }),
-    getCurrentUser(),
-  ]);
-
+  const business = await getBusinessBySlug(params.slug);
   if (!business || !business.published) notFound();
 
-  const services = business.services ?? [];
-  const professionals = business.professionals ?? [];
+  const [services, professionals, user] = await Promise.all([
+    getServicesByBusiness(business.id, { activeOnly: true }),
+    getProfessionalsByBusiness(business.id, { activeOnly: true }),
+    getCurrentUser(),
+  ]);
 
   if (services.length === 0) {
     return (
