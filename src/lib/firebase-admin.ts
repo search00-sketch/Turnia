@@ -30,16 +30,25 @@ export function getAdminAuth() {
   return getAuth(getAdminApp());
 }
 
-let dbInstance: Firestore | undefined;
+const globalForFirebase = globalThis as unknown as {
+  firestoreDb?: Firestore;
+};
 
 export function getAdminDb(): Firestore {
-  if (!dbInstance) {
-    dbInstance = getFirestore(getAdminApp());
-    // Los Server Actions pasan campos opcionales como `undefined` (vía Zod
-    // `.optional()`) cuando el usuario no los completó. Sin esto, Firestore
-    // tira error al escribir un `undefined`. Con esto, el campo se omite del
-    // write (no se toca), igual que hace Prisma con `undefined` en `update`.
-    dbInstance.settings({ ignoreUndefinedProperties: true });
+  if (globalForFirebase.firestoreDb) {
+    return globalForFirebase.firestoreDb;
   }
-  return dbInstance;
+
+  const db = getFirestore(getAdminApp());
+  // Los Server Actions pasan campos opcionales como `undefined` (vía Zod
+  // `.optional()`) cuando el usuario no los completó. Sin esto, Firestore
+  // tira error al escribir un `undefined`. Con esto, el campo se omite del
+  // write (no se toca), igual que hace Prisma con `undefined` en `update`.
+  db.settings({ ignoreUndefinedProperties: true });
+
+  if (process.env.NODE_ENV !== "production") {
+    globalForFirebase.firestoreDb = db;
+  }
+
+  return db;
 }
