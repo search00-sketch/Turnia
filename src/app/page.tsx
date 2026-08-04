@@ -1,17 +1,12 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+import { getPublishedBusinesses } from "@/lib/db/businesses";
 import { CATEGORIES } from "@/lib/config";
 import BusinessCard from "@/components/business-card";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const businesses = await prisma.business.findMany({
-    where: { published: true },
-    orderBy: { createdAt: "desc" },
-    take: 8,
-    select: { slug: true, name: true, category: true, address: true, coverImage: true },
-  });
+  const businesses = await getPublishedBusinesses({ take: 8 });
 
   return (
     <div>

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+import { getPublishedBusinesses } from "@/lib/db/businesses";
+import { getServicesForBusinesses } from "@/lib/db/services";
 import { CATEGORIES } from "@/lib/config";
 import BusinessCard from "@/components/business-card";
 
@@ -10,26 +11,23 @@ interface Props {
 }
 
 export default async function NegociosPage({ searchParams }: Props) {
-  const q = searchParams.q?.trim() || "";
+  const q = searchParams.q?.trim().toLowerCase() || "";
   const categoria = searchParams.categoria || "";
 
-  const businesses = await prisma.business.findMany({
-    where: {
-      published: true,
-      ...(categoria ? { category: categoria } : {}),
-      ...(q
-        ? {
-            OR: [
-              { name: { contains: q } },
-              { description: { contains: q } },
-              { services: { some: { name: { contains: q } } } },
-            ],
-          }
-        : {}),
-    },
-    orderBy: { createdAt: "desc" },
-    select: { slug: true, name: true, category: true, address: true, coverImage: true },
-  });
+  let businesses = await getPublishedBusinesses(categoria ? { category: categoria } : {});
+
+  if (q) {
+    const services = await getServicesForBusinesses(businesses.map((b) => b.id));
+    const businessIdsWithMatchingService = new Set(
+      services.filter((s) => s.name.toLowerCase().includes(q)).map((s) => s.businessId)
+    );
+    businesses = businesses.filter(
+      (b) =>
+        b.name.toLowerCase().includes(q) ||
+        (b.description?.toLowerCase().includes(q) ?? false) ||
+        businessIdsWithMatchingService.has(b.id)
+    );
+  }
 
   return (
     <div className="section py-10">

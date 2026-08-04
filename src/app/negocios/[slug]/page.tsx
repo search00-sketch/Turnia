@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { getBusinessBySlug } from "@/lib/db/businesses";
+import { getServicesByBusiness, type ServiceDoc } from "@/lib/db/services";
+import { getHoursByBusiness } from "@/lib/db/hours";
+import { getProfessionalsByBusiness } from "@/lib/db/professionals";
 import { categoryLabel, DAYS_OF_WEEK } from "@/lib/config";
 import { formatDuration, formatPrice } from "@/lib/format";
 
@@ -11,22 +14,16 @@ interface Props {
 }
 
 export default async function BusinessDetailPage({ params }: Props) {
-  const business = await prisma.business.findUnique({
-    where: { slug: params.slug },
-    include: {
-      services: { where: { active: true }, orderBy: { name: "asc" } },
-      hours: { orderBy: { dayOfWeek: "asc" } },
-      professionals: { where: { active: true } },
-    },
-  });
-
+  const business = await getBusinessBySlug(params.slug);
   if (!business || !business.published) notFound();
 
-  const services = business.services ?? [];
-  const hours = business.hours ?? [];
-  const professionals = business.professionals ?? [];
+  const [services, hours, professionals] = await Promise.all([
+    getServicesByBusiness(business.id, { activeOnly: true }),
+    getHoursByBusiness(business.id),
+    getProfessionalsByBusiness(business.id, { activeOnly: true }),
+  ]);
 
-  const servicesByCategory = new Map<string, typeof services>();
+  const servicesByCategory = new Map<string, ServiceDoc[]>();
   for (const service of services) {
     const list = servicesByCategory.get(service.category) ?? [];
     list.push(service);
