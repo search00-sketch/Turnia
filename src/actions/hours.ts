@@ -21,7 +21,7 @@ export async function updateBusinessHours(input: unknown): Promise<ActionResult>
   if (!user) return { ok: false, error: "AUTH_REQUIRED" };
 
   const parsed = hoursSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Dados de horario inválidos." };
+  if (!parsed.success) return { ok: false, error: "Datos de horario inválidos." };
 
   for (const day of parsed.data) {
     if (!day.isClosed && (!day.openTime || !day.closeTime)) {
