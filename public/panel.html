@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Turnia — Panel de mi negocio</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <a href="index.html" class="logo">Turnia</a>
+      <nav class="nav-actions">
+        <a id="public-link" class="btn btn-secondary" href="index.html" target="_blank" rel="noopener">Ver directorio</a>
+        <button id="logout-btn" type="button" class="btn btn-secondary">Cerrar sesión</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div id="loading-state" class="loading-state">Cargando tu negocio…</div>
+
+    <div id="panel-content" hidden>
+      <div class="panel-header">
+        <div>
+          <h1>Panel de mi negocio</h1>
+          <p class="hint">Conectado como <span id="owner-email"></span></p>
+        </div>
+        <label class="publish-toggle">
+          <input type="checkbox" id="published" />
+          <span id="publish-label">Sin publicar</span>
+        </label>
+      </div>
+
+      <form id="business-form">
+        <div class="panel-card">
+          <h2>Datos del negocio</h2>
+          <div class="field">
+            <label for="name">Nombre</label>
+            <input type="text" id="name" name="name" required />
+          </div>
+          <div class="field">
+            <label for="category">Rubro</label>
+            <select id="category" name="category"></select>
+          </div>
+          <div class="field">
+            <label for="description">Descripción</label>
+            <textarea id="description" name="description" placeholder="Contá brevemente qué ofrecés…"></textarea>
+          </div>
+        </div>
+
+        <div class="panel-card">
+          <h2>Contacto</h2>
+          <div class="field">
+            <label for="address">Dirección</label>
+            <input type="text" id="address" name="address" />
+          </div>
+          <div class="two-col">
+            <div class="field">
+              <label for="phone">Teléfono</label>
+              <input type="tel" id="phone" name="phone" />
+            </div>
+            <div class="field">
+              <label for="whatsapp">WhatsApp</label>
+              <input type="tel" id="whatsapp" name="whatsapp" placeholder="Ej: 5491122334455" />
+              <p class="hint">Con código de país, sin espacios ni signos.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-card">
+          <h2>Servicios</h2>
+          <div id="services-list"></div>
+          <button type="button" id="add-service" class="btn btn-secondary btn-sm">+ Agregar servicio</button>
+        </div>
+
+        <p id="save-msg" class="form-msg" role="alert"></p>
+        <button type="submit" class="btn btn-primary">Guardar cambios</button>
+      </form>
+    </div>
+  </main>
+
+  <script type="module" src="js/panel.js"></script>
+</body>
+</html>

@@ -1,0 +1,130 @@
+// Esquema de base de datos de Turnia
+// Postgres (pensado para Supabase o Neon). El login lo maneja Firebase Auth:
+// acá sólo guardamos el perfil (nombre, rol, negocio) enlazado por firebaseUid.
+
+datasource db {
+  provider  = "postgresql"
+  // Conexión con pooler (PgBouncer, puerto 6543): la usa la app en tiempo de
+  // ejecución. directUrl es una conexión directa (puerto 5432) que Prisma
+  // necesita para correr migraciones — el pooler en modo "transaction" no
+  // soporta el tipo de sesión que las migraciones necesitan.
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  CLIENTE
+  NEGOCIO
+  ADMIN
+}
+
+enum EstadoTurno {
+  PENDIENTE
+  CONFIRMADO
+  CANCELADO
+  COMPLETADO
+}
+
+model User {
+  id          String   @id @default(cuid())
+  firebaseUid String   @unique
+  name        String
+  lastName    String?
+  email       String   @unique
+  phone       String?
+  role        Role     @default(CLIENTE)
+  createdAt   DateTime @default(now())
+
+  business     Business?     @relation("BusinessOwner")
+  appointments Appointment[] @relation("ClientAppointments")
+}
+
+model Business {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  category    String
+  description String?
+  address     String?
+  phone       String?
+  whatsapp    String?
+  coverImage  String?
+  published   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  ownerId String @unique
+  owner   User   @relation("BusinessOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  services      Service[]
+  professionals Professional[]
+  hours         BusinessHour[]
+  appointments  Appointment[]
+
+  @@index([category])
+}
+
+model BusinessHour {
+  id         String  @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  dayOfWeek  Int // 0 = domingo ... 6 = sábado
+  isClosed   Boolean @default(false)
+  openTime   String? // "10:00"
+  closeTime  String? // "20:00"
+
+  @@unique([businessId, dayOfWeek])
+}
+
+model Professional {
+  id         String  @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name       String
+  photo      String?
+  active     Boolean @default(true)
+
+  appointments Appointment[]
+}
+
+model Service {
+  id          String  @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  category    String
+  name        String
+  description String?
+  price       Float
+  durationMin Int     @default(30)
+  active      Boolean @default(true)
+
+  appointments Appointment[]
+
+  @@index([businessId])
+}
+
+model Appointment {
+  id             String      @id @default(cuid())
+  businessId     String
+  business       Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  professionalId String
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  serviceId      String
+  service        Service     @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  clientId       String
+  client         User        @relation("ClientAppointments", fields: [clientId], references: [id], onDelete: Cascade)
+
+  startsAt     DateTime
+  endsAt       DateTime
+  status       EstadoTurno @default(CONFIRMADO)
+  notes        String?
+  reminderSent Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+
+  @@index([businessId, startsAt])
+  @@index([professionalId, startsAt])
+  @@index([clientId])
+}
