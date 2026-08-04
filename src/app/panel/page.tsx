@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { requireBusinessUser } from "@/lib/session";
-import { prisma } from "@/lib/prisma";
+import { getAppointmentsInRange, hydrateForBusiness } from "@/lib/db/appointments";
+import { getServicesByBusiness } from "@/lib/db/services";
+import { getProfessionalsByBusiness } from "@/lib/db/professionals";
 import { formatPrice, formatTime } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -17,36 +19,25 @@ export default async function PanelDashboardPage() {
   const weekEnd = new Date(now);
   weekEnd.setDate(weekEnd.getDate() + 7);
 
-  const [rawTodayAppointments, weekCount, servicesCount, professionalsCount] = await Promise.all([
-    prisma.appointment.findMany({
-      where: {
-        businessId,
-        startsAt: { gte: todayStart, lte: todayEnd },
-        status: { in: ["CONFIRMADO", "PENDIENTE"] },
-      },
-      include: { service: true, professional: true, client: true },
-      orderBy: { startsAt: "asc" },
-    }),
-    prisma.appointment.count({
-      where: { businessId, startsAt: { gte: now, lte: weekEnd }, status: { in: ["CONFIRMADO", "PENDIENTE"] } },
-    }),
-    prisma.service.count({ where: { businessId, active: true } }),
-    prisma.professional.count({ where: { businessId, active: true } }),
+  const [rawTodayAppointments, weekAppointments, services, professionals] = await Promise.all([
+    getAppointmentsInRange(businessId, todayStart, todayEnd),
+    getAppointmentsInRange(businessId, now, weekEnd),
+    getServicesByBusiness(businessId, { activeOnly: true }),
+    getProfessionalsByBusiness(businessId, { activeOnly: true }),
   ]);
 
-  // service/professional/client siempre vienen incluidos por el include de arriba.
-  const todayAppointments = rawTodayAppointments.map((a) => ({
-    ...a,
-    service: a.service!,
-    professional: a.professional!,
-    client: a.client!,
-  }));
+  const todayAppointments = (await hydrateForBusiness(rawTodayAppointments)).filter(
+    (a) => a.status === "CONFIRMADO" || a.status === "PENDIENTE"
+  );
+  const weekCount = weekAppointments.filter(
+    (a) => a.status === "CONFIRMADO" || a.status === "PENDIENTE"
+  ).length;
 
   const stats = [
     { label: "Turnos hoy", value: todayAppointments.length },
     { label: "Turnos próximos 7 días", value: weekCount },
-    { label: "Servicios activos", value: servicesCount },
-    { label: "Profesionales activos", value: professionalsCount },
+    { label: "Servicios activos", value: services.length },
+    { label: "Profesionales activos", value: professionals.length },
   ];
 
   return (
@@ -88,7 +79,7 @@ export default async function PanelDashboardPage() {
         )}
       </div>
 
-      {servicesCount === 0 && (
+      {services.length === 0 && (
         <div className="card p-6 bg-amber-50 border-amber-100">
           <p className="text-sm text-amber-800">
             Todavía no cargaste servicios, así que tu negocio no puede recibir reservas.{" "}

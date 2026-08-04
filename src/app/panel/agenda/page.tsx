@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireBusinessUser } from "@/lib/session";
-import { prisma } from "@/lib/prisma";
+import { getAppointmentsInRange, hydrateForBusiness } from "@/lib/db/appointments";
 import { formatDateLong, formatPrice, formatTime } from "@/lib/format";
 import AppointmentStatusActions from "@/components/appointment-status-actions";
 
@@ -43,19 +43,8 @@ export default async function AgendaPage({ searchParams }: Props) {
   const nextDay = new Date(selected);
   nextDay.setDate(nextDay.getDate() + 1);
 
-  const rawAppointments = await prisma.appointment.findMany({
-    where: { businessId, startsAt: { gte: selected, lte: dayEnd } },
-    include: { service: true, professional: true, client: true },
-    orderBy: { startsAt: "asc" },
-  });
-
-  // service/professional/client siempre vienen incluidos por el include de arriba.
-  const appointments = rawAppointments.map((a) => ({
-    ...a,
-    service: a.service!,
-    professional: a.professional!,
-    client: a.client!,
-  }));
+  const rawAppointments = await getAppointmentsInRange(businessId, selected, dayEnd);
+  const appointments = await hydrateForBusiness(rawAppointments);
 
   return (
     <div>
