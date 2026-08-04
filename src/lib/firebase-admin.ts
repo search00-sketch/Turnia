@@ -46,9 +46,7 @@ export function getAdminDb(): Firestore {
   // write (no se toca), igual que hace Prisma con `undefined` en `update`.
   db.settings({ ignoreUndefinedProperties: true });
 
-  if (process.env.NODE_ENV !== "production") {
-    globalForFirebase.firestoreDb = db;
-  }
+  globalForFirebase.firestoreDb = db;
 
   return db;
 }
