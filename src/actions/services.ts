@@ -2,7 +2,11 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import {
+  createService as createServiceDoc,
+  updateService as updateServiceDoc,
+  getServiceById,
+} from "@/lib/db/services";
 import { requireBusinessUser } from "@/lib/session";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -22,9 +26,7 @@ export async function createService(input: unknown): Promise<ActionResult> {
   const parsed = serviceSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
 
-  await prisma.service.create({
-    data: { ...parsed.data, businessId: user.business!.id },
-  });
+  await createServiceDoc(user.business!.id, parsed.data);
 
   revalidatePath("/panel/servicios");
   revalidatePath("/negocios");
@@ -35,7 +37,7 @@ export async function updateService(id: string, input: unknown): Promise<ActionR
   const user = await requireBusinessUser();
   if (!user) return { ok: false, error: "AUTH_REQUIRED" };
 
-  const existing = await prisma.service.findUnique({ where: { id } });
+  const existing = await getServiceById(id);
   if (!existing || existing.businessId !== user.business!.id) {
     return { ok: false, error: "No encontramos ese servicio." };
   }
@@ -43,7 +45,7 @@ export async function updateService(id: string, input: unknown): Promise<ActionR
   const parsed = serviceSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
 
-  await prisma.service.update({ where: { id }, data: parsed.data });
+  await updateServiceDoc(id, parsed.data);
   revalidatePath("/panel/servicios");
   revalidatePath("/negocios");
   return { ok: true };
@@ -53,12 +55,12 @@ export async function setServiceActive(id: string, active: boolean): Promise<Act
   const user = await requireBusinessUser();
   if (!user) return { ok: false, error: "AUTH_REQUIRED" };
 
-  const existing = await prisma.service.findUnique({ where: { id } });
+  const existing = await getServiceById(id);
   if (!existing || existing.businessId !== user.business!.id) {
     return { ok: false, error: "No encontramos ese servicio." };
   }
 
-  await prisma.service.update({ where: { id }, data: { active } });
+  await updateServiceDoc(id, { active });
   revalidatePath("/panel/servicios");
   revalidatePath("/negocios");
   return { ok: true };
