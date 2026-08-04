@@ -2,7 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser, requireBusinessUser } from "@/lib/session";
-import { prisma } from "@/lib/prisma";
+import { getUserByUid } from "@/lib/db/users";
+import { getBusinessById } from "@/lib/db/businesses";
+import { getHoursByBusiness } from "@/lib/db/hours";
+import { getProfessionalsByBusiness } from "@/lib/db/professionals";
+import { getServiceById } from "@/lib/db/services";
+import {
+  getAppointmentsInRange,
+  getAppointmentById,
+  createAppointmentTx,
+  updateAppointmentStatus,
+  SlotUnavailableError,
+} from "@/lib/db/appointments";
 import { generateAvailableSlots } from "@/lib/slots";
 import { sendMail, bookingConfirmationEmail, newBookingOwnerEmail } from "@/lib/mailer";
 import { formatDateLong, formatTime } from "@/lib/format";
@@ -29,20 +40,16 @@ export async function getAvailableSlots({
   professionalId: string; // "any" o el id de un profesional puntual
   dateISO: string; // "yyyy-MM-dd"
 }) {
-  const [business, service] = await Promise.all([
-    prisma.business.findUnique({
-      where: { id: businessId },
-      include: { hours: true, professionals: { where: { active: true } } },
-    }),
-    prisma.service.findUnique({ where: { id: serviceId } }),
+  const [business, service, businessHours, allProfessionals] = await Promise.all([
+    getBusinessById(businessId),
+    getServiceById(serviceId),
+    getHoursByBusiness(businessId),
+    getProfessionalsByBusiness(businessId, { activeOnly: true }),
   ]);
 
   if (!business || !service) {
     return { professionals: [] as { id: string; name: string }[], slotsByProfessional: {} as Record<string, string[]> };
   }
-
-  const businessHours = business.hours ?? [];
-  const allProfessionals = business.professionals ?? [];
 
   const date = new Date(`${dateISO}T00:00:00`);
   const candidates =
@@ -51,19 +58,12 @@ export async function getAvailableSlots({
       : allProfessionals.filter((p) => p.id === professionalId);
 
   const { start, end } = dayRange(date);
-  const appointments = await prisma.appointment.findMany({
-    where: {
-      businessId,
-      status: { in: ["PENDIENTE", "CONFIRMADO"] },
-      startsAt: { gte: start, lte: end },
-      professionalId: { in: candidates.map((p) => p.id) },
-    },
-    select: { professionalId: true, startsAt: true, endsAt: true },
-  });
+  const appointments = await getAppointmentsInRange(businessId, start, end);
+  const relevant = appointments.filter((a) => a.status === "PENDIENTE" || a.status === "CONFIRMADO");
 
   const slotsByProfessional: Record<string, string[]> = {};
   for (const prof of candidates) {
-    const busy = appointments.filter((a) => a.professionalId === prof.id);
+    const busy = relevant.filter((a) => a.professionalId === prof.id);
     const slots = generateAvailableSlots({
       date,
       durationMin: service.durationMin,
@@ -81,7 +81,7 @@ export async function getAvailableSlots({
   };
 }
 
-/** Crea el turno, revalidando disponibilidad en el servidor para evitar choques. */
+/** Crea el turno, revalidando disponibilidad en una transacción de Firestore para evitar choques. */
 export async function createAppointment(input: {
   businessId: string;
   serviceId: string;
@@ -98,19 +98,21 @@ export async function createAppointment(input: {
     return { ok: false, error: "Ingresá con una cuenta de cliente para reservar." };
   }
 
-  const business = await prisma.business.findUnique({
-    where: { id: input.businessId },
-    include: { hours: true, professionals: { where: { active: true } }, owner: true },
-  });
-  const service = await prisma.service.findUnique({ where: { id: input.serviceId } });
+  const [business, service, businessHours, allProfessionals] = await Promise.all([
+    getBusinessById(input.businessId),
+    getServiceById(input.serviceId),
+    getHoursByBusiness(input.businessId),
+    getProfessionalsByBusiness(input.businessId, { activeOnly: true }),
+  ]);
 
-  if (!business || !service || !business.owner) {
+  if (!business || !service) {
     return { ok: false, error: "No encontramos el negocio o el servicio." };
   }
 
-  const owner = business.owner;
-  const businessHours = business.hours ?? [];
-  const allProfessionals = business.professionals ?? [];
+  const owner = await getUserByUid(business.ownerId);
+  if (!owner) {
+    return { ok: false, error: "No encontramos el negocio o el servicio." };
+  }
 
   const date = new Date(`${input.dateISO}T00:00:00`);
   const [hh, mm] = input.time.split(":").map(Number);
@@ -128,18 +130,12 @@ export async function createAppointment(input: {
   }
 
   const { start, end } = dayRange(date);
-  const existing = await prisma.appointment.findMany({
-    where: {
-      businessId: business.id,
-      status: { in: ["PENDIENTE", "CONFIRMADO"] },
-      startsAt: { gte: start, lte: end },
-      professionalId: { in: candidates.map((p) => p.id) },
-    },
-  });
+  const existing = await getAppointmentsInRange(input.businessId, start, end);
+  const relevant = existing.filter((a) => a.status === "PENDIENTE" || a.status === "CONFIRMADO");
 
   let chosenProfessional: { id: string; name: string } | null = null;
   for (const prof of candidates) {
-    const busy = existing.filter((a) => a.professionalId === prof.id);
+    const busy = relevant.filter((a) => a.professionalId === prof.id);
     const slots = generateAvailableSlots({
       date,
       durationMin: service.durationMin,
@@ -156,29 +152,31 @@ export async function createAppointment(input: {
     return { ok: false, error: "Ese horario ya no está disponible. Elegí otro." };
   }
 
-  const appointment = await prisma.appointment.create({
-    data: {
+  try {
+    await createAppointmentTx({
       businessId: business.id,
       professionalId: chosenProfessional.id,
       serviceId: service.id,
       clientId: user.id,
       startsAt,
       endsAt,
-      status: "CONFIRMADO",
+      durationMin: service.durationMin,
+      businessHours,
       notes: input.notes,
-    },
-    include: { client: true },
-  });
-
-  // El cliente siempre viene incluido porque se pidió explícitamente arriba.
-  const client = appointment.client!;
+    });
+  } catch (err) {
+    if (err instanceof SlotUnavailableError) {
+      return { ok: false, error: "Ese horario ya no está disponible. Elegí otro." };
+    }
+    throw err;
+  }
 
   try {
     await sendMail({
-      to: client.email,
+      to: user.email,
       subject: `Turno confirmado en ${business.name}`,
       html: bookingConfirmationEmail({
-        clientName: client.name,
+        clientName: user.name,
         businessName: business.name,
         serviceName: service.name,
         professionalName: chosenProfessional.name,
@@ -190,10 +188,10 @@ export async function createAppointment(input: {
 
     await sendMail({
       to: owner.email,
-      subject: `Nuevo turno de ${client.name}`,
+      subject: `Nuevo turno de ${user.name}`,
       html: newBookingOwnerEmail({
         businessName: business.name,
-        clientName: client.name,
+        clientName: user.name,
         serviceName: service.name,
         professionalName: chosenProfessional.name,
         dateLabel: formatDateLong(startsAt),
@@ -214,15 +212,12 @@ export async function cancelAppointmentAsClient(appointmentId: string): Promise<
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "AUTH_REQUIRED" };
 
-  const appointment = await prisma.appointment.findUnique({ where: { id: appointmentId } });
+  const appointment = await getAppointmentById(appointmentId);
   if (!appointment || appointment.clientId !== user.id) {
     return { ok: false, error: "No encontramos ese turno." };
   }
 
-  await prisma.appointment.update({
-    where: { id: appointmentId },
-    data: { status: "CANCELADO" },
-  });
+  await updateAppointmentStatus(appointmentId, "CANCELADO");
 
   revalidatePath("/mis-turnos");
   revalidatePath("/panel/agenda");
@@ -238,12 +233,12 @@ export async function updateAppointmentStatusAsBusiness(
     return { ok: false, error: "AUTH_REQUIRED" };
   }
 
-  const appointment = await prisma.appointment.findUnique({ where: { id: appointmentId } });
+  const appointment = await getAppointmentById(appointmentId);
   if (!appointment || appointment.businessId !== user.business!.id) {
     return { ok: false, error: "No encontramos ese turno." };
   }
 
-  await prisma.appointment.update({ where: { id: appointmentId }, data: { status } });
+  await updateAppointmentStatus(appointmentId, status);
 
   revalidatePath("/panel/agenda");
   revalidatePath("/mis-turnos");
