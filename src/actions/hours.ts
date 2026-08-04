@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import { upsertHours } from "@/lib/db/hours";
 import { requireBusinessUser } from "@/lib/session";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -21,7 +21,7 @@ export async function updateBusinessHours(input: unknown): Promise<ActionResult>
   if (!user) return { ok: false, error: "AUTH_REQUIRED" };
 
   const parsed = hoursSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Datos de horario inválidos." };
+  if (!parsed.success) return { ok: false, error: "Dados de horario inválidos." };
 
   for (const day of parsed.data) {
     if (!day.isClosed && (!day.openTime || !day.closeTime)) {
@@ -32,20 +32,7 @@ export async function updateBusinessHours(input: unknown): Promise<ActionResult>
     }
   }
 
-  await prisma.$transaction(
-    parsed.data.map((day) =>
-      prisma.businessHour.upsert({
-        where: {
-          businessId_dayOfWeek: {
-            businessId: user.business!.id,
-            dayOfWeek: day.dayOfWeek,
-          },
-        },
-        create: { ...day, businessId: user.business!.id },
-        update: { isClosed: day.isClosed, openTime: day.openTime, closeTime: day.closeTime },
-      })
-    )
-  );
+  await upsertHours(user.business!.id, parsed.data);
 
   revalidatePath("/panel/horarios");
   revalidatePath("/negocios");

@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import { updateBusiness } from "@/lib/db/businesses";
 import { requireBusinessUser } from "@/lib/session";
 import { CATEGORIES } from "@/lib/config";
 
@@ -26,10 +26,7 @@ export async function updateBusinessProfile(input: unknown): Promise<ActionResul
   const parsed = profileSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
 
-  await prisma.business.update({
-    where: { id: user.business!.id },
-    data: parsed.data,
-  });
+  await updateBusiness(user.business!.id, parsed.data);
 
   revalidatePath("/panel/negocio");
   revalidatePath("/negocios");
