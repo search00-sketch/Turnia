@@ -1,4 +1,7 @@
-import { prisma } from "./prisma";
+import { getDueReminders, markReminderSent } from "./db/appointments";
+import { getBusinessById } from "./db/businesses";
+import { getServiceById } from "./db/services";
+import { getUserByUid } from "./db/users";
 import { sendMail, bookingReminderEmail } from "./mailer";
 import { formatDateLong, formatTime } from "./format";
 import { REMINDER_HOURS_BEFORE } from "./config";
@@ -16,21 +19,19 @@ export async function sendDueReminders() {
   const windowStart = new Date(now.getTime() + (REMINDER_HOURS_BEFORE - 1) * 60 * 60 * 1000);
   const windowEnd = new Date(now.getTime() + (REMINDER_HOURS_BEFORE + 1) * 60 * 60 * 1000);
 
-  const appointments = await prisma.appointment.findMany({
-    where: {
-      status: { in: ["CONFIRMADO", "PENDIENTE"] },
-      reminderSent: false,
-      startsAt: { gte: windowStart, lte: windowEnd },
-    },
-    include: { client: true, business: true, service: true },
-  });
+  const appointments = await getDueReminders(windowStart, windowEnd);
 
   let sent = 0;
   for (const appt of appointments) {
-    // client/business/service siempre vienen incluidos por el include de arriba.
-    const client = appt.client!;
-    const business = appt.business!;
-    const service = appt.service!;
+    const [client, business, service] = await Promise.all([
+      getUserByUid(appt.clientId),
+      getBusinessById(appt.businessId),
+      getServiceById(appt.serviceId),
+    ]);
+    // Firestore no tiene foreign keys: si alguno de los tres fue borrado, se
+    // salta el recordatorio en vez de romper el resto de la corrida.
+    if (!client || !business || !service) continue;
+
     try {
       await sendMail({
         to: client.email,
@@ -44,7 +45,7 @@ export async function sendDueReminders() {
           address: business.address,
         }),
       });
-      await prisma.appointment.update({ where: { id: appt.id }, data: { reminderSent: true } });
+      await markReminderSent(appt.id);
       sent++;
     } catch (err) {
       console.error(`No se pudo enviar el recordatorio del turno ${appt.id}`, err);
