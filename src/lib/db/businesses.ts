@@ -98,9 +98,17 @@ export async function updateBusiness(
   await getAdminDb().collection(COLLECTIONS.businesses).doc(id).update(data);
 }
 
+/** Se lanza cuando otra registración se quedó con el slug entre el chequeo previo y el commit. */
+export class SlugTakenError extends Error {}
+
 /**
- * Crea el usuario dueño + el negocio + sus 7 horarios en un solo batch atómico
- * (reemplaza el nested create de Prisma en registerBusiness).
+ * Crea el usuario dueño + el negocio + sus 7 horarios en una transacción atómica
+ * (reemplaza el nested create de Prisma en registerBusiness). La unicidad del
+ * slug se reserva con tx.create() sobre turnia_businessSlugs/{slug}: Firestore
+ * no tiene constraints únicas como Postgres, así que sin esto dos registros
+ * concurrentes con el mismo nombre podrían pisarse el slug (el chequeo previo
+ * isSlugTaken por sí solo no es atómico). Si el slug ya fue tomado justo antes
+ * de este commit, tira SlugTakenError y no crea nada (falla junto todo).
  */
 export async function createBusinessOwnerBatch(input: {
   ownerId: string;
@@ -118,35 +126,47 @@ export async function createBusinessOwnerBatch(input: {
 }): Promise<string> {
   const db = getAdminDb();
   const businessRef = db.collection(COLLECTIONS.businesses).doc();
-  const batch = db.batch();
+  const slugRef = db.collection(COLLECTIONS.businessSlugs).doc(input.businessData.slug);
 
-  batch.set(db.collection(COLLECTIONS.users).doc(input.ownerId), {
-    name: input.ownerData.name,
-    lastName: input.ownerData.lastName ?? null,
-    email: input.ownerData.email,
-    phone: input.ownerData.phone ?? null,
-    role: "NEGOCIO",
-    createdAt: new Date(),
-  });
+  try {
+    await db.runTransaction(async (tx) => {
+      tx.create(slugRef, { businessId: businessRef.id });
 
-  batch.set(businessRef, {
-    slug: input.businessData.slug,
-    name: input.businessData.name,
-    category: input.businessData.category,
-    description: input.businessData.description ?? null,
-    address: input.businessData.address ?? null,
-    phone: input.businessData.phone ?? null,
-    whatsapp: input.businessData.whatsapp ?? null,
-    coverImage: null,
-    published: true,
-    ownerId: input.ownerId,
-    createdAt: new Date(),
-  });
+      tx.set(db.collection(COLLECTIONS.users).doc(input.ownerId), {
+        name: input.ownerData.name,
+        lastName: input.ownerData.lastName ?? null,
+        email: input.ownerData.email,
+        phone: input.ownerData.phone ?? null,
+        role: "NEGOCIO",
+        createdAt: new Date(),
+      });
 
-  for (const day of input.hours) {
-    batch.set(hourRef(businessRef.id, day.dayOfWeek), { businessId: businessRef.id, ...day });
+      tx.set(businessRef, {
+        slug: input.businessData.slug,
+        name: input.businessData.name,
+        category: input.businessData.category,
+        description: input.businessData.description ?? null,
+        address: input.businessData.address ?? null,
+        phone: input.businessData.phone ?? null,
+        whatsapp: input.businessData.whatsapp ?? null,
+        coverImage: null,
+        published: true,
+        ownerId: input.ownerId,
+        createdAt: new Date(),
+      });
+
+      for (const day of input.hours) {
+        tx.set(hourRef(businessRef.id, day.dayOfWeek), { businessId: businessRef.id, ...day });
+      }
+    });
+  } catch (err) {
+    const code = (err as { code?: number }).code;
+    // ALREADY_EXISTS: alguien reservó este slug entre el isSlugTaken() previo y este commit.
+    if (code === 6) {
+      throw new SlugTakenError(`El slug "${input.businessData.slug}" ya está en uso.`);
+    }
+    throw err;
   }
 
-  await batch.commit();
   return businessRef.id;
 }

@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { getAdminAuth } from "@/lib/firebase-admin";
 import { createUser, getUserByUid } from "@/lib/db/users";
-import { isSlugTaken, createBusinessOwnerBatch } from "@/lib/db/businesses";
+import { isSlugTaken, createBusinessOwnerBatch, SlugTakenError } from "@/lib/db/businesses";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -103,29 +103,46 @@ export async function registerBusiness(input: unknown): Promise<ActionResult> {
   const baseSlug = slugify(data.businessName);
   let slug = baseSlug;
   let i = 1;
-  while (await isSlugTaken(slug)) {
-    slug = `${baseSlug}-${i++}`;
+
+  // isSlugTaken() es sólo una pre-chequeada rápida para el caso común (evita
+  // intentos de transacción innecesarios); createBusinessOwnerBatch es quien
+  // realmente garantiza la unicidad de forma atómica. Si dos registros
+  // concurrentes eligen el mismo slug, uno de los dos recibe SlugTakenError
+  // acá y reintenta con el siguiente sufijo.
+  for (let attempt = 0; attempt < 10; attempt++) {
+    while (await isSlugTaken(slug)) {
+      slug = `${baseSlug}-${i++}`;
+    }
+
+    try {
+      await createBusinessOwnerBatch({
+        ownerId: decoded.uid,
+        ownerData: {
+          name: data.ownerName,
+          lastName: data.ownerLastName,
+          email: decoded.email.toLowerCase(),
+          phone: data.phone,
+        },
+        businessData: {
+          slug,
+          name: data.businessName,
+          category: data.category,
+          description: data.description,
+          address: data.address,
+          phone: data.phone,
+          whatsapp: data.whatsapp,
+        },
+        hours: STANDARD_HOURS,
+      });
+      return { ok: true };
+    } catch (err) {
+      if (err instanceof SlugTakenError) {
+        slug = `${baseSlug}-${i++}`;
+        continue;
+      }
+      throw err;
+    }
   }
 
-  await createBusinessOwnerBatch({
-    ownerId: decoded.uid,
-    ownerData: {
-      name: data.ownerName,
-      lastName: data.ownerLastName,
-      email: decoded.email.toLowerCase(),
-      phone: data.phone,
-    },
-    businessData: {
-      slug,
-      name: data.businessName,
-      category: data.category,
-      description: data.description,
-      address: data.address,
-      phone: data.phone,
-      whatsapp: data.whatsapp,
-    },
-    hours: STANDARD_HOURS,
-  });
-
-  return { ok: true };
+  return { ok: false, error: "No pudimos generar un nombre único para tu negocio. Probá de nuevo." };
 }
