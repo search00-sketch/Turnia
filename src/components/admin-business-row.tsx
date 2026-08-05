@@ -22,6 +22,13 @@ export default function AdminBusinessRow({ business }: { business: AdminBusiness
   const [saved, setSaved] = useState(false);
 
   function togglePublished() {
+    const goingToUnpublish = business.published;
+    if (goingToUnpublish) {
+      const confirmed = window.confirm(
+        `¿Despublicar "${business.name}"? Va a desaparecer del marketplace público. El dueño va a seguir pudiendo entrar a su panel.`
+      );
+      if (!confirmed) return;
+    }
     startTransition(async () => {
       await adminSetBusinessPublished(business.id, !business.published);
     });
