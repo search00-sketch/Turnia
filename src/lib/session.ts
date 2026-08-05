@@ -35,3 +35,10 @@ export async function requireClientUser() {
   if (!user || user.role !== "CLIENTE") return null;
   return user;
 }
+
+/** Devuelve el usuario sólo si es administrador de la plataforma. */
+export async function requireAdminUser() {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "ADMIN") return null;
+  return user;
+}

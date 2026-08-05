@@ -61,6 +61,11 @@ export default function Navbar({ user }: { user: NavUser | null }) {
               Panel del negocio
             </Link>
           )}
+          {user?.role === "ADMIN" && (
+            <Link href="/admin" className="hover:text-brand-600">
+              Admin
+            </Link>
+          )}
         </nav>
 
         <div className="hidden md:flex items-center gap-3">
@@ -119,6 +124,11 @@ export default function Navbar({ user }: { user: NavUser | null }) {
             {user?.role === "NEGOCIO" && (
               <Link href="/panel" className="py-2" onClick={() => setOpen(false)}>
                 Panel del negocio
+              </Link>
+            )}
+            {user?.role === "ADMIN" && (
+              <Link href="/admin" className="py-2" onClick={() => setOpen(false)}>
+                Admin
               </Link>
             )}
             <div className="h-px bg-neutral-100 my-2" />
