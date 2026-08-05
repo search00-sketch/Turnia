@@ -1,6 +1,7 @@
 import { getAdminDb } from "@/lib/firebase-admin";
 import { COLLECTIONS } from "@/lib/db/collections";
 import { hourRef } from "@/lib/db/hours";
+import { mapUserDoc, type UserDoc } from "@/lib/db/users";
 
 export interface BusinessDoc {
   id: string;
@@ -15,6 +16,8 @@ export interface BusinessDoc {
   published: boolean;
   ownerId: string;
   createdAt: Date;
+  /** Hasta cuándo pagó el uso de la plataforma. null = todavía no pagó nada (plan gratis). Se carga a mano desde /admin/negocios — no hay pasarela de pago integrada. */
+  paidUntil: Date | null;
 }
 
 export function mapBusinessDoc(snap: FirebaseFirestore.DocumentSnapshot): BusinessDoc {
@@ -32,6 +35,7 @@ export function mapBusinessDoc(snap: FirebaseFirestore.DocumentSnapshot): Busine
     published: data.published,
     ownerId: data.ownerId,
     createdAt: data.createdAt.toDate(),
+    paidUntil: data.paidUntil ? data.paidUntil.toDate() : null,
   };
 }
 
@@ -93,9 +97,34 @@ export async function updateBusiness(
     whatsapp: string;
     coverImage: string;
     published: boolean;
+    paidUntil: Date | null;
   }>
 ): Promise<void> {
   await getAdminDb().collection(COLLECTIONS.businesses).doc(id).update(data);
+}
+
+export interface BusinessWithOwner extends BusinessDoc {
+  owner: UserDoc | null;
+}
+
+/**
+ * Trae TODOS los negocios (publicados o no, a diferencia de getPublishedBusinesses)
+ * con los datos del dueño hidratados, para /admin/negocios. Uso exclusivo del
+ * panel de administración.
+ */
+export async function getAllBusinessesWithOwners(): Promise<BusinessWithOwner[]> {
+  const db = getAdminDb();
+  const snap = await db.collection(COLLECTIONS.businesses).get();
+  const businesses = snap.docs.map(mapBusinessDoc);
+  businesses.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+  if (businesses.length === 0) return [];
+
+  const ownerIds = [...new Set(businesses.map((b) => b.ownerId))];
+  const ownerSnaps = await db.getAll(...ownerIds.map((id) => db.collection(COLLECTIONS.users).doc(id)));
+  const owners = new Map(ownerSnaps.filter((s) => s.exists).map((s) => [s.id, mapUserDoc(s)]));
+
+  return businesses.map((b) => ({ ...b, owner: owners.get(b.ownerId) ?? null }));
 }
 
 /** Se lanza cuando otra registración se quedó con el slug entre el chequeo previo y el commit. */
