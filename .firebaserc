@@ -1,14 +1,5 @@
 {
   "projects": {
     "default": "coyote-house"
-  },
-  "targets": {
-    "coyote-house": {
-      "hosting": {
-        "turnia": [
-          "turnia"
-        ]
-      }
-    }
   }
 }
