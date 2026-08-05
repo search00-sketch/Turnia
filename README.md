@@ -78,14 +78,14 @@ Para sumar un negocio nuevo, lo más simple es que se registre desde `/registro-
 
 ## Recordatorios automáticos
 
-El envío de recordatorios (`/api/cron/reminders`) no corre solo: hay que dispararlo periódicamente (se sugiere cada 1 hora). Dos formas:
+El envío de recordatorios (`/api/cron/reminders`) no corre solo: hay que dispararlo periódicamente. Dos formas:
 
-1. **Desplegando en Vercel**: el proyecto ya incluye `vercel.json` con un cron configurado a `0 * * * *` (cada hora). Sólo necesitás tener definida la variable de entorno `CRON_SECRET` en el proyecto de Vercel (Vercel manda automáticamente `Authorization: Bearer <CRON_SECRET>` en cada llamada del cron).
-2. **Con tu propio servidor / cualquier otro hosting**: corré `npm run reminders:send` desde un cron tradicional, por ejemplo:
+1. **Desplegando en Vercel**: el proyecto ya incluye `vercel.json` con un cron configurado a `0 13 * * *` (una vez por día, 13:00 UTC ≈ 10hs Argentina). Es una corrida por día porque el plan gratuito (Hobby) de Vercel no permite crons más frecuentes — si tenés plan Pro podés cambiarlo a algo como `0 * * * *` (cada hora) para que los recordatorios salgan con mayor precisión respecto a la hora del turno (`sendDueReminders()` en `src/lib/reminders.ts` ya contempla ambos casos: revisa todo lo que empieza dentro de las próximas ~24hs y no manda el mismo recordatorio dos veces). Sólo necesitás tener definida la variable de entorno `CRON_SECRET` en el proyecto de Vercel (Vercel manda automáticamente `Authorization: Bearer <CRON_SECRET>` en cada llamada del cron).
+2. **Con tu propio servidor / cualquier otro hosting**: corré `npm run reminders:send` desde un cron tradicional, por ejemplo una vez por día:
    ```
-   0 * * * *  cd /ruta/al/proyecto && npm run reminders:send >> reminders.log 2>&1
+   0 13 * * *  cd /ruta/al/proyecto && npm run reminders:send >> reminders.log 2>&1
    ```
-   O apuntá un servicio externo (como cron-job.org) a `https://tu-dominio.com/api/cron/reminders?secret=TU_CRON_SECRET` cada 1 hora.
+   O apuntá un servicio externo (como cron-job.org, que sí permite frecuencia horaria gratis) a `https://tu-dominio.com/api/cron/reminders?secret=TU_CRON_SECRET` cada 1 hora si querés más precisión sin pagar Vercel Pro.
 
 ## 3. Desplegar en producción (Vercel)
 

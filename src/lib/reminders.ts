@@ -7,16 +7,23 @@ import { formatDateLong, formatTime } from "./format";
 import { REMINDER_HOURS_BEFORE } from "./config";
 
 /**
- * Busca turnos que empiezan dentro de la ventana de recordatorio
- * (por defecto, entre 23 y 25 horas antes) y a los que todavía no
- * se les envió el recordatorio, y les manda el email correspondiente.
+ * Busca turnos que empiezan dentro de las próximas ~24hs (y a los que
+ * todavía no se les envió el recordatorio) y les manda el email
+ * correspondiente.
  *
- * Pensado para ejecutarse periódicamente (cada 1 hora aprox.) desde
- * /api/cron/reminders o desde scripts/send-reminders.ts.
+ * Pensado para ejecutarse una vez por día (plan gratuito de Vercel: los
+ * crons del plan Hobby no pueden correr más de una vez por día) desde
+ * /api/cron/reminders o desde scripts/send-reminders.ts. Por eso la
+ * ventana cubre un día entero en vez de una banda angosta alrededor de
+ * REMINDER_HOURS_BEFORE: con una sola corrida diaria, una ventana angosta
+ * dejaría sin recordatorio a la mayoría de los turnos (sólo agarraría los
+ * que caen justo en esa banda). El recordatorio deja de llegar siempre
+ * ~24hs antes exacto y pasa a llegar en algún momento entre ahora y las
+ * próximas ~25hs, pero le llega a todos los turnos.
  */
 export async function sendDueReminders() {
   const now = new Date();
-  const windowStart = new Date(now.getTime() + (REMINDER_HOURS_BEFORE - 1) * 60 * 60 * 1000);
+  const windowStart = now;
   const windowEnd = new Date(now.getTime() + (REMINDER_HOURS_BEFORE + 1) * 60 * 60 * 1000);
 
   const appointments = await getDueReminders(windowStart, windowEnd);
