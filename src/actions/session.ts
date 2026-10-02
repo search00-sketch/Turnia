@@ -2,21 +2,24 @@
 
 import { cookies } from "next/headers";
 import { getAdminAuth } from "@/lib/firebase-admin";
+import { getUserByUid } from "@/lib/db/users";
 import { SESSION_COOKIE_MAX_AGE_MS, SESSION_COOKIE_NAME } from "@/lib/session-constants";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
+
+export type SessionResult = { ok: true; hasProfile: boolean } | { ok: false; error: string };
 
 /**
  * Cambia un ID token de Firebase (de corta duración, del cliente) por una cookie
  * de sesión httpOnly (de larga duración) que el servidor puede verificar en cada
  * request sin volver a hablar con Firebase desde el navegador.
  */
-export async function createSessionCookie(idToken: string): Promise<ActionResult> {
+export async function createSessionCookie(idToken: string): Promise<SessionResult> {
   try {
     const auth = getAdminAuth();
     // Verificamos el token antes de confiar en él (evita que cualquiera mande un
     // token trucho e intente que le generemos una cookie de sesión).
-    await auth.verifyIdToken(idToken);
+    const decoded = await auth.verifyIdToken(idToken);
 
     const cookieValue = await auth.createSessionCookie(idToken, {
       expiresIn: SESSION_COOKIE_MAX_AGE_MS,
@@ -30,7 +33,10 @@ export async function createSessionCookie(idToken: string): Promise<ActionResult
       maxAge: SESSION_COOKIE_MAX_AGE_MS / 1000,
     });
 
-    return { ok: true };
+    // Una cuenta de Firebase sin perfil en Firestore es un registro que quedó a
+    // medias: el login lo avisa para que se complete desde el registro.
+    const profile = await getUserByUid(decoded.uid);
+    return { ok: true, hasProfile: Boolean(profile) };
   } catch (err) {
     console.error("No se pudo crear la sesión", err);
     return { ok: false, error: "No pudimos iniciar tu sesión. Probá de nuevo." };

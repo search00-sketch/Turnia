@@ -1,12 +1,12 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getFirebaseAuth } from "@/lib/firebase-client";
 import { firebaseErrorMessage } from "@/lib/firebase-errors";
-import { createSessionCookie } from "@/actions/session";
+import { createSessionCookie, clearSessionCookie } from "@/actions/session";
 
 function LoginForm() {
   const router = useRouter();
@@ -16,11 +16,13 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [incomplete, setIncomplete] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setIncomplete(false);
     setLoading(true);
 
     try {
@@ -30,6 +32,14 @@ function LoginForm() {
 
       if (!result.ok) {
         setError(result.error);
+        setLoading(false);
+        return;
+      }
+
+      if (!result.hasProfile) {
+        await clearSessionCookie();
+        await signOut(getFirebaseAuth()).catch(() => {});
+        setIncomplete(true);
         setLoading(false);
         return;
       }
@@ -75,6 +85,19 @@ function LoginForm() {
             />
           </div>
 
+          {incomplete && (
+            <div className="text-sm text-amber-800 bg-amber-50 rounded-lg px-3 py-2">
+              Tu cuenta quedó a medio registrar. Completá el registro con este mismo email y contraseña:{" "}
+              <Link href="/registro" className="font-semibold underline">
+                soy cliente
+              </Link>{" "}
+              o{" "}
+              <Link href="/registro-negocio" className="font-semibold underline">
+                tengo un negocio
+              </Link>
+              .
+            </div>
+          )}
           {error && (
             <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
           )}

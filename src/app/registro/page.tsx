@@ -3,8 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { getFirebaseAuth } from "@/lib/firebase-client";
+import { getOrCreateAuthAccount, rollbackAuthAccount } from "@/lib/register-account";
 import { firebaseErrorMessage } from "@/lib/firebase-errors";
 import { registerClient } from "@/actions/auth";
 import { createSessionCookie } from "@/actions/session";
@@ -30,9 +29,16 @@ export default function RegistroPage() {
     setError(null);
     setLoading(true);
 
+    const account = await getOrCreateAuthAccount(form.email, form.password);
+    if (!account.ok) {
+      setError(account.error);
+      setLoading(false);
+      return;
+    }
+
+    let registered = false;
     try {
-      const credential = await createUserWithEmailAndPassword(getFirebaseAuth(), form.email, form.password);
-      const idToken = await credential.user.getIdToken();
+      const idToken = await account.user.getIdToken();
 
       const result = await registerClient({
         idToken,
@@ -42,10 +48,12 @@ export default function RegistroPage() {
       });
 
       if (!result.ok) {
+        await rollbackAuthAccount(account.user, account.createdNow);
         setError(result.error);
         setLoading(false);
         return;
       }
+      registered = true;
 
       const sessionResult = await createSessionCookie(idToken);
       setLoading(false);
@@ -58,6 +66,7 @@ export default function RegistroPage() {
       router.push("/");
       router.refresh();
     } catch (err) {
+      if (!registered) await rollbackAuthAccount(account.user, account.createdNow);
       const code = (err as { code?: string })?.code;
       setError(firebaseErrorMessage(code));
       setLoading(false);

@@ -7,6 +7,19 @@ import { isSlugTaken, createBusinessOwnerBatch, SlugTakenError } from "@/lib/db/
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
+const ROLE_LABEL: Record<string, string> = {
+  CLIENTE: "cliente",
+  NEGOCIO: "negocio",
+  ADMIN: "administrador",
+};
+
+function emailInUseByOtherRole(role: string) {
+  return (
+    `Ese email ya tiene una cuenta de ${ROLE_LABEL[role] ?? role}. Para crear otra cuenta usá otro email ` +
+    "(con Gmail podés usar un alias, por ejemplo tunombre+negocio@gmail.com: los mails te llegan igual)."
+  );
+}
+
 async function verifyToken(idToken: string) {
   try {
     return await getAdminAuth().verifyIdToken(idToken);
@@ -39,7 +52,9 @@ export async function registerClient(input: unknown): Promise<ActionResult> {
   if (!decoded.email) return { ok: false, error: "Tu cuenta no tiene un email asociado." };
 
   const existing = await getUserByUid(decoded.uid);
-  if (existing) return { ok: true };
+  if (existing) {
+    return existing.role === "CLIENTE" ? { ok: true } : { ok: false, error: emailInUseByOtherRole(existing.role) };
+  }
 
   await createUser(decoded.uid, {
     name,
@@ -97,7 +112,10 @@ export async function registerBusiness(input: unknown): Promise<ActionResult> {
 
   const existingUser = await getUserByUid(decoded.uid);
   if (existingUser) {
-    return { ok: false, error: "Esta cuenta ya está registrada." };
+    if (existingUser.role === "NEGOCIO") {
+      return { ok: false, error: "Ese email ya tiene un negocio registrado. Ingresá desde \"Iniciar sesión\"." };
+    }
+    return { ok: false, error: emailInUseByOtherRole(existingUser.role) };
   }
 
   const baseSlug = slugify(data.businessName);
