@@ -6,4 +6,5 @@ export const COLLECTIONS = {
   professionals: "turnia_professionals",
   businessHours: "turnia_businessHours",
   appointments: "turnia_appointments",
+  movements: "turnia_movements",
 } as const;

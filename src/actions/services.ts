@@ -16,6 +16,7 @@ const serviceSchema = z.object({
   name: z.string().min(1, "Ingresá un nombre"),
   description: z.string().optional(),
   price: z.coerce.number().min(0, "El precio no puede ser negativo"),
+  cost: z.coerce.number().min(0, "El costo no puede ser negativo").default(0),
   durationMin: z.coerce.number().int().min(5, "La duración mínima es 5 minutos"),
 });
 
@@ -29,6 +30,7 @@ export async function createService(input: unknown): Promise<ActionResult> {
   await createServiceDoc(user.business!.id, parsed.data);
 
   revalidatePath("/panel/servicios");
+  revalidatePath("/panel/contabilidad");
   revalidatePath("/negocios");
   return { ok: true };
 }
@@ -47,6 +49,7 @@ export async function updateService(id: string, input: unknown): Promise<ActionR
 
   await updateServiceDoc(id, parsed.data);
   revalidatePath("/panel/servicios");
+  revalidatePath("/panel/contabilidad");
   revalidatePath("/negocios");
   return { ok: true };
 }

@@ -163,6 +163,8 @@ export async function createAppointment(input: {
       durationMin: service.durationMin,
       businessHours,
       notes: input.notes,
+      price: service.price,
+      cost: service.cost,
     });
   } catch (err) {
     if (err instanceof SlotUnavailableError) {
@@ -204,6 +206,7 @@ export async function createAppointment(input: {
 
   revalidatePath("/mis-turnos");
   revalidatePath("/panel/agenda");
+  revalidatePath("/panel/contabilidad");
 
   return { ok: true };
 }
@@ -221,6 +224,7 @@ export async function cancelAppointmentAsClient(appointmentId: string): Promise<
 
   revalidatePath("/mis-turnos");
   revalidatePath("/panel/agenda");
+  revalidatePath("/panel/contabilidad");
   return { ok: true };
 }
 
@@ -242,5 +246,6 @@ export async function updateAppointmentStatusAsBusiness(
 
   revalidatePath("/panel/agenda");
   revalidatePath("/mis-turnos");
+  revalidatePath("/panel/contabilidad");
   return { ok: true };
 }

@@ -10,6 +10,7 @@ No es una copia 1:1 de Wonoma (nombre, marca y contenidos son propios), sino una
 - **Reserva de turnos paso a paso**: Servicio → Profesional (o "cualquiera disponible") → Fecha → Hora → Confirmar, calculando en el momento los horarios realmente disponibles según el horario de atención del negocio y los turnos ya ocupados.
 - **Cuentas de cliente**: registro/login con Firebase Authentication, y sección "Mis turnos" para ver próximos turnos, historial, y cancelar.
 - **Panel del negocio**: cada negocio tiene su propio login y administra su agenda (por día, con cambio de estado de cada turno), sus servicios (con categoría, precio y duración), sus profesionales, sus horarios de atención y los datos de su ficha pública.
+- **Contabilidad del negocio** (`/panel/contabilidad`): estado de resultados mensual con ingresos, gastos, ganancia neta y margen, desglosado por cada servicio/producto. Los ingresos salen solos de los turnos marcados como realizados (con el precio y el costo por turno del servicio), y el negocio puede cargar a mano gastos (insumos, alquiler, sueldos...) e ingresos extra (venta de productos), imputados a un servicio o agrupados por concepto.
 - **Emails automáticos**: confirmación al reservar (a cliente y a negocio) y recordatorio ~24hs antes del turno.
 - **Multi-negocio**: es una sola plataforma donde pueden convivir todos los negocios, cada uno con sus propios datos, agenda y usuarios, completamente aislados entre sí.
 
@@ -21,7 +22,7 @@ Quedó **fuera de este alcance** (podés pedir que se sume más adelante): pagos
 - **Firebase Authentication** para el login/registro de clientes y negocios, y **Cloud Firestore** como única base de datos de la app (perfiles, negocios, servicios, profesionales, horarios y turnos). Todo el acceso a Firestore pasa por el servidor (Server Actions / Server Components vía el Admin SDK, `firebase-admin`) — el navegador nunca lo consulta directo, así que no hace falta mantener Firestore Security Rules de datos.
 - **Nodemailer** para el envío de emails.
 
-> Las colecciones de Firestore que usa esta app están todas prefijadas `turnia_` (`turnia_users`, `turnia_businesses`, `turnia_services`, `turnia_professionals`, `turnia_businessHours`, `turnia_appointments`, `turnia_businessSlugs`) porque el proyecto de Firebase puede estar compartido con otra app en la misma cuenta. **Si en algún momento hace falta escribir Firestore Security Rules reales** (por ejemplo, para permitir acceso directo desde el navegador), hacelo sólo sobre esas colecciones `turnia_*` — nunca despliegues un `firestore.rules` que no incluya explícitamente las reglas de cualquier otra app que viva en el mismo proyecto, o le vas a cortar el acceso a sus propios datos.
+> Las colecciones de Firestore que usa esta app están todas prefijadas `turnia_` (`turnia_users`, `turnia_businesses`, `turnia_services`, `turnia_professionals`, `turnia_businessHours`, `turnia_appointments`, `turnia_movements`, `turnia_businessSlugs`) porque el proyecto de Firebase puede estar compartido con otra app en la misma cuenta. **Si en algún momento hace falta escribir Firestore Security Rules reales** (por ejemplo, para permitir acceso directo desde el navegador), hacelo sólo sobre esas colecciones `turnia_*` — nunca despliegues un `firestore.rules` que no incluya explícitamente las reglas de cualquier otra app que viva en el mismo proyecto, o le vas a cortar el acceso a sus propios datos.
 
 ## 1. Crear el proyecto de Firebase
 
@@ -40,7 +41,7 @@ Necesitás [Node.js](https://nodejs.org) 18 o superior y el [CLI de Firebase](ht
 ```bash
 npm install                        # instala dependencias
 cp .env.example .env                # completá .env con los valores del paso 1 (ver abajo)
-firebase deploy --only firestore:indexes   # crea el único índice compuesto que necesita la app
+firebase deploy --only firestore:indexes   # crea los índices compuestos que necesita la app
 npm run db:seed                     # carga 3 negocios de ejemplo + un cliente, en Firestore Y en Firebase Auth
 npm run dev                         # arranca en http://localhost:3000
 ```
@@ -113,7 +114,7 @@ El envío de recordatorios (`/api/cron/reminders`) no corre solo: hay que dispar
 
 - **"auth/invalid-api-key" o pantalla de login rota**: te falta cargar alguno de los 6 `NEXT_PUBLIC_FIREBASE_*` en Vercel, o tiene un typo. Como son públicas podés verificarlas abriendo la consola del navegador en `/login`.
 - **El login funciona pero da error al crear la sesión o al leer/guardar datos**: revisá `FIREBASE_PROJECT_ID` / `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY` (Admin SDK). El error más común es la `PRIVATE_KEY` mal pegada — tiene que conservar los `\n` tal como los copiaste del `.json` de la cuenta de servicio.
-- **Error "the query requires an index"**: falta desplegar el índice compuesto — corré `firebase deploy --only firestore:indexes`.
+- **Error "the query requires an index"** (por ejemplo al abrir `/panel/contabilidad`): falta desplegar algún índice compuesto — corré `firebase deploy --only firestore:indexes`.
 - **No llegan los emails**: sin `SMTP_*` configurado, los emails se simulan (se imprimen en los logs de Vercel, no se envían). Revisá los logs de la función antes de asumir que algo está roto.
 - **Los recordatorios no se envían solos**: confirmá que `CRON_SECRET` esté cargado en Vercel — sin él, el cron job configurado en `vercel.json` responde 401 y no manda nada.
 
@@ -122,4 +123,5 @@ El envío de recordatorios (`/api/cron/reminders`) no corre solo: hay que dispar
 - **Autenticación**: Firebase Authentication es dueño de la identidad (email + contraseña) de clientes y negocios. Firestore guarda el perfil de cada usuario (nombre, rol, negocio si corresponde) con el documento indexado por el `uid` de Firebase. El servidor verifica cada request con una cookie de sesión httpOnly (creada a partir del ID token de Firebase), no con el ID token directamente — así no hace falta volver a hablar con Firebase en cada página.
 - **Disponibilidad de turnos**: se calcula en `src/lib/slots.ts` a partir del horario de atención del día, la duración del servicio, y los turnos ya confirmados de cada profesional. La reserva en sí (`src/lib/db/appointments.ts`, `createAppointmentTx`) corre dentro de una transacción de Firestore que vuelve a chequear disponibilidad antes de escribir, para evitar que dos personas reserven el mismo horario en simultáneo.
 - **Unicidad del slug de negocio**: como Firestore no tiene constraints únicas como Postgres, la unicidad del slug (`/negocios/{slug}`) se garantiza reservándolo atómicamente en una transacción (`turnia_businessSlugs/{slug}`) al crear el negocio.
+- **Contabilidad**: cada servicio tiene un "costo por turno" opcional (insumos, comisión del profesional, etc.). Al reservar, el turno guarda una copia del precio y del costo del servicio en ese momento, así cambiar un precio después no modifica la contabilidad de meses anteriores (los turnos creados antes de esta función usan el precio/costo actual del servicio). Un turno cuenta como ingreso recién cuando el negocio lo marca como realizado (`COMPLETADO`). El cálculo está en `src/lib/accounting.ts` (función pura, sin acceso a Firestore) y los gastos/ingresos manuales viven en la colección `turnia_movements`.
 - **Roles**: `CLIENTE`, `NEGOCIO` (y `ADMIN` reservado para un futuro panel de super-administración de la plataforma, no implementado todavía).

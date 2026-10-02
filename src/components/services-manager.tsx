@@ -11,11 +11,12 @@ interface ServiceItem {
   name: string;
   description: string | null;
   price: number;
+  cost: number;
   durationMin: number;
   active: boolean;
 }
 
-const emptyForm = { category: "", name: "", description: "", price: "", durationMin: "30" };
+const emptyForm = { category: "", name: "", description: "", price: "", cost: "", durationMin: "30" };
 
 export default function ServicesManager({ services }: { services: ServiceItem[] }) {
   const router = useRouter();
@@ -35,6 +36,7 @@ export default function ServicesManager({ services }: { services: ServiceItem[] 
       name: s.name,
       description: s.description ?? "",
       price: String(s.price),
+      cost: s.cost ? String(s.cost) : "",
       durationMin: String(s.durationMin),
     });
   }
@@ -125,7 +127,7 @@ export default function ServicesManager({ services }: { services: ServiceItem[] 
               onChange={(e) => setNewForm((f) => ({ ...f, description: e.target.value }))}
             />
           </div>
-          <div className="grid sm:grid-cols-2 gap-3">
+          <div className="grid sm:grid-cols-3 gap-3">
             <div>
               <label className="label">Precio (ARS)</label>
               <input
@@ -135,6 +137,17 @@ export default function ServicesManager({ services }: { services: ServiceItem[] 
                 value={newForm.price}
                 onChange={(e) => setNewForm((f) => ({ ...f, price: e.target.value }))}
                 required
+              />
+            </div>
+            <div>
+              <label className="label">Costo por turno (ARS)</label>
+              <input
+                type="number"
+                min={0}
+                className="input"
+                value={newForm.cost}
+                onChange={(e) => setNewForm((f) => ({ ...f, cost: e.target.value }))}
+                placeholder="Insumos, comisión..."
               />
             </div>
             <div>
@@ -194,7 +207,7 @@ export default function ServicesManager({ services }: { services: ServiceItem[] 
                     onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
                   />
                 </div>
-                <div className="grid sm:grid-cols-2 gap-3">
+                <div className="grid sm:grid-cols-3 gap-3">
                   <div>
                     <label className="label">Precio (ARS)</label>
                     <input
@@ -204,6 +217,17 @@ export default function ServicesManager({ services }: { services: ServiceItem[] 
                       value={editForm.price}
                       onChange={(e) => setEditForm((f) => ({ ...f, price: e.target.value }))}
                       required
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Costo por turno (ARS)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      className="input"
+                      value={editForm.cost}
+                      onChange={(e) => setEditForm((f) => ({ ...f, cost: e.target.value }))}
+                      placeholder="Insumos, comisión..."
                     />
                   </div>
                   <div>
@@ -238,6 +262,12 @@ export default function ServicesManager({ services }: { services: ServiceItem[] 
                   {s.description && <p className="text-sm text-neutral-500">{s.description}</p>}
                   <p className="text-sm text-neutral-400">
                     {formatDuration(s.durationMin)} · {formatPrice(s.price)}
+                    {s.cost > 0 && (
+                      <>
+                        {" "}
+                        · costo {formatPrice(s.cost)} · ganancia {formatPrice(s.price - s.cost)}
+                      </>
+                    )}
                   </p>
                 </div>
                 <div className="flex gap-3 shrink-0">

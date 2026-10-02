@@ -65,7 +65,7 @@ interface BusinessSeed {
   whatsapp: string;
   hours: typeof STANDARD_HOURS;
   professionals: string[];
-  services: { category: string; name: string; description?: string; price: number; durationMin: number }[];
+  services: { category: string; name: string; description?: string; price: number; cost?: number; durationMin: number }[];
 }
 
 // Si el negocio ya existe (slug ya tomado), no vuelve a crear nada — así
@@ -122,11 +122,11 @@ const BUSINESS_SEEDS: BusinessSeed[] = [
     hours: STANDARD_HOURS,
     professionals: ["María López", "Jorge Batista"],
     services: [
-      { category: "Corte", name: "Corte Mujer", description: "Incluye lavado y secado.", price: 18000, durationMin: 45 },
-      { category: "Corte", name: "Corte Hombre", price: 12000, durationMin: 30 },
-      { category: "Color", name: "Coloración raíz", description: "Retoque de raíz hasta 3cm.", price: 25000, durationMin: 60 },
-      { category: "Color", name: "Balayage", description: "Técnica de iluminación con degradado natural.", price: 60000, durationMin: 120 },
-      { category: "Peinados", name: "Brushing", price: 15000, durationMin: 30 },
+      { category: "Corte", name: "Corte Mujer", description: "Incluye lavado y secado.", price: 18000, cost: 3000, durationMin: 45 },
+      { category: "Corte", name: "Corte Hombre", price: 12000, cost: 2000, durationMin: 30 },
+      { category: "Color", name: "Coloración raíz", description: "Retoque de raíz hasta 3cm.", price: 25000, cost: 8000, durationMin: 60 },
+      { category: "Color", name: "Balayage", description: "Técnica de iluminación con degradado natural.", price: 60000, cost: 18000, durationMin: 120 },
+      { category: "Peinados", name: "Brushing", price: 15000, cost: 2500, durationMin: 30 },
     ],
   },
   {
@@ -145,9 +145,9 @@ const BUSINESS_SEEDS: BusinessSeed[] = [
     hours: BARBERIA_HOURS,
     professionals: ["Diego Fernández", "Nacho Gómez"],
     services: [
-      { category: "Corte", name: "Corte clásico", price: 10000, durationMin: 30 },
-      { category: "Corte", name: "Corte + Barba", price: 15000, durationMin: 45 },
-      { category: "Barba", name: "Arreglo de barba", price: 7000, durationMin: 20 },
+      { category: "Corte", name: "Corte clásico", price: 10000, cost: 1500, durationMin: 30 },
+      { category: "Corte", name: "Corte + Barba", price: 15000, cost: 2500, durationMin: 45 },
+      { category: "Barba", name: "Arreglo de barba", price: 7000, cost: 1200, durationMin: 20 },
     ],
   },
   {
@@ -166,10 +166,10 @@ const BUSINESS_SEEDS: BusinessSeed[] = [
     hours: STANDARD_HOURS,
     professionals: ["Carla Núñez", "Sofía Ruiz"],
     services: [
-      { category: "Masajes", name: "Masaje relajante", price: 30000, durationMin: 60 },
-      { category: "Masajes", name: "Masaje descontracturante", price: 26000, durationMin: 45 },
-      { category: "Uñas", name: "Manicura", price: 12000, durationMin: 40 },
-      { category: "Uñas", name: "Pedicura", price: 15000, durationMin: 50 },
+      { category: "Masajes", name: "Masaje relajante", price: 30000, cost: 5000, durationMin: 60 },
+      { category: "Masajes", name: "Masaje descontracturante", price: 26000, cost: 4500, durationMin: 45 },
+      { category: "Uñas", name: "Manicura", price: 12000, cost: 2500, durationMin: 40 },
+      { category: "Uñas", name: "Pedicura", price: 15000, cost: 3000, durationMin: 50 },
     ],
   },
 ];
@@ -209,6 +209,8 @@ async function main() {
       startsAt: turno1Start,
       endsAt: addMinutes(turno1Start, corteHombre.durationMin),
       status: "CONFIRMADO",
+      price: corteHombre.price,
+      cost: corteHombre.cost,
     });
 
     const professionals3 = await getProfessionalsByBusiness(business3.id);
@@ -224,6 +226,8 @@ async function main() {
       startsAt: turno2Start,
       endsAt: addMinutes(turno2Start, manicura.durationMin),
       status: "CONFIRMADO",
+      price: manicura.price,
+      cost: manicura.cost,
     });
 
     const professionals2 = await getProfessionalsByBusiness(business2.id);
@@ -239,6 +243,8 @@ async function main() {
       startsAt: turnoPasadoStart,
       endsAt: addMinutes(turnoPasadoStart, corteClasico.durationMin),
       status: "COMPLETADO",
+      price: corteClasico.price,
+      cost: corteClasico.cost,
     });
   }
 

@@ -18,6 +18,9 @@ export interface AppointmentDoc {
   endsAt: Date;
   status: AppointmentStatus;
   notes: string | null;
+  /** Precio y costo del servicio al momento de reservar (null en turnos anteriores a la contabilidad). */
+  price: number | null;
+  cost: number | null;
   reminderSent: boolean;
   createdAt: Date;
 }
@@ -34,6 +37,8 @@ export function mapAppointmentDoc(snap: FirebaseFirestore.DocumentSnapshot): App
     endsAt: data.endsAt.toDate(),
     status: data.status,
     notes: data.notes ?? null,
+    price: data.price ?? null,
+    cost: data.cost ?? null,
     reminderSent: data.reminderSent,
     createdAt: data.createdAt.toDate(),
   };
@@ -100,6 +105,8 @@ export async function createAppointmentDoc(data: {
   endsAt: Date;
   status?: AppointmentStatus;
   notes?: string;
+  price?: number;
+  cost?: number;
 }): Promise<AppointmentDoc> {
   const ref = getAdminDb().collection(COLLECTIONS.appointments).doc();
   const doc = {
@@ -111,6 +118,8 @@ export async function createAppointmentDoc(data: {
     endsAt: data.endsAt,
     status: data.status ?? ("CONFIRMADO" as AppointmentStatus),
     notes: data.notes ?? null,
+    price: data.price ?? null,
+    cost: data.cost ?? null,
     reminderSent: false,
     createdAt: new Date(),
   };
@@ -135,6 +144,8 @@ export async function createAppointmentTx(input: {
   durationMin: number;
   businessHours: BusinessHourLike[];
   notes?: string;
+  price: number;
+  cost: number;
 }): Promise<AppointmentDoc> {
   const db = getAdminDb();
   const dayStart = new Date(input.startsAt);
@@ -181,6 +192,8 @@ export async function createAppointmentTx(input: {
       endsAt: input.endsAt,
       status: "CONFIRMADO" as AppointmentStatus,
       notes: input.notes ?? null,
+      price: input.price,
+      cost: input.cost,
       reminderSent: false,
       createdAt: new Date(),
     };

@@ -8,6 +8,8 @@ export interface ServiceDoc {
   name: string;
   description: string | null;
   price: number;
+  /** Costo directo estimado de cada turno de este servicio (insumos, comisión, etc.). */
+  cost: number;
   durationMin: number;
   active: boolean;
 }
@@ -21,6 +23,7 @@ export function mapServiceDoc(snap: FirebaseFirestore.DocumentSnapshot): Service
     name: data.name,
     description: data.description ?? null,
     price: data.price,
+    cost: data.cost ?? 0,
     durationMin: data.durationMin,
     active: data.active,
   };
@@ -61,7 +64,7 @@ export async function getServiceById(id: string): Promise<ServiceDoc | null> {
 
 export async function createService(
   businessId: string,
-  data: { category: string; name: string; description?: string; price: number; durationMin: number }
+  data: { category: string; name: string; description?: string; price: number; cost?: number; durationMin: number }
 ): Promise<void> {
   await getAdminDb()
     .collection(COLLECTIONS.services)
@@ -71,6 +74,7 @@ export async function createService(
       name: data.name,
       description: data.description ?? null,
       price: data.price,
+      cost: data.cost ?? 0,
       durationMin: data.durationMin,
       active: true,
     });
@@ -83,6 +87,7 @@ export async function updateService(
     name: string;
     description: string;
     price: number;
+    cost: number;
     durationMin: number;
     active: boolean;
   }>
