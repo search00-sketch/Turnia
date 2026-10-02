@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "db:seed": "tsx scripts/seed-firestore.ts",
-    "reminders:send": "tsx scripts/send-reminders.ts"
+    "reminders:send": "tsx scripts/send-reminders.ts",
+    "fix:timezone": "tsx scripts/fix-timezone.ts"
   },
   "dependencies": {
     "date-fns": "^3.6.0",

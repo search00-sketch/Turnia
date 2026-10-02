@@ -202,6 +202,52 @@ export async function createAppointmentTx(input: {
   });
 }
 
+/**
+ * Vuelve a confirmar un turno cancelado, chequeando dentro de una transacción
+ * que el profesional no tenga otro turno activo que se superponga (alguien
+ * pudo haber reservado ese horario después de la cancelación).
+ */
+export async function reactivateAppointmentTx(id: string): Promise<void> {
+  const db = getAdminDb();
+  const ref = db.collection(COLLECTIONS.appointments).doc(id);
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) throw new SlotUnavailableError("No encontramos ese turno.");
+    const appointment = mapAppointmentDoc(snap);
+
+    const dayStart = new Date(appointment.startsAt);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(appointment.startsAt);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const daySnap = await tx.get(
+      db
+        .collection(COLLECTIONS.appointments)
+        .where("businessId", "==", appointment.businessId)
+        .where("startsAt", ">=", dayStart)
+        .where("startsAt", "<=", dayEnd)
+    );
+
+    const clash = daySnap.docs
+      .map(mapAppointmentDoc)
+      .some(
+        (a) =>
+          a.id !== appointment.id &&
+          a.professionalId === appointment.professionalId &&
+          (a.status === "PENDIENTE" || a.status === "CONFIRMADO") &&
+          a.startsAt < appointment.endsAt &&
+          appointment.startsAt < a.endsAt
+      );
+
+    if (clash) {
+      throw new SlotUnavailableError("Ese horario ya está ocupado por otro turno, no se puede reactivar.");
+    }
+
+    tx.update(ref, { status: "CONFIRMADO" });
+  });
+}
+
 export interface ClientAppointmentView extends AppointmentDoc {
   business: BusinessDoc;
   service: ServiceDoc;

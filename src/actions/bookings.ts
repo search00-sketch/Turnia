@@ -11,6 +11,7 @@ import {
   getAppointmentsInRange,
   getAppointmentById,
   createAppointmentTx,
+  reactivateAppointmentTx,
   updateAppointmentStatus,
   SlotUnavailableError,
 } from "@/lib/db/appointments";
@@ -219,6 +220,12 @@ export async function cancelAppointmentAsClient(appointmentId: string): Promise<
   if (!appointment || appointment.clientId !== user.id) {
     return { ok: false, error: "No encontramos ese turno." };
   }
+  if (appointment.status !== "PENDIENTE" && appointment.status !== "CONFIRMADO") {
+    return { ok: false, error: "Este turno ya no se puede cancelar." };
+  }
+  if (appointment.startsAt < new Date()) {
+    return { ok: false, error: "No se puede cancelar un turno que ya pasó." };
+  }
 
   await updateAppointmentStatus(appointmentId, "CANCELADO");
 
@@ -242,7 +249,16 @@ export async function updateAppointmentStatusAsBusiness(
     return { ok: false, error: "No encontramos ese turno." };
   }
 
-  await updateAppointmentStatus(appointmentId, status);
+  if (status === "CONFIRMADO" && appointment.status === "CANCELADO") {
+    try {
+      await reactivateAppointmentTx(appointmentId);
+    } catch (err) {
+      if (err instanceof SlotUnavailableError) return { ok: false, error: err.message };
+      throw err;
+    }
+  } else {
+    await updateAppointmentStatus(appointmentId, status);
+  }
 
   revalidatePath("/panel/agenda");
   revalidatePath("/mis-turnos");

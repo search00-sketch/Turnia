@@ -11,6 +11,8 @@ const nextConfig = {
   // require() normal en tiempo de ejecución, como cualquier paquete de Node.
   experimental: {
     serverComponentsExternalPackages: ["firebase-admin"],
+    // Habilita src/instrumentation.ts, que fija la zona horaria del servidor.
+    instrumentationHook: true,
   },
 };
 

@@ -101,6 +101,17 @@ El envío de recordatorios (`/api/cron/reminders`) no corre solo: hay que dispar
 5. **Índice de Firestore**: si todavía no lo desplegaste, corré `firebase deploy --only firestore:indexes` una vez (desde tu computadora, con el CLI de Firebase logueado y el proyecto correcto seleccionado en `.firebaserc`).
 6. **Firebase**: en la consola de Firebase, Authentication → Settings → "Authorized domains", agregá el dominio que te asignó Vercel (`tu-proyecto.vercel.app`, y tu dominio propio si le configurás uno). Sin este paso, Firebase va a rechazar los logins que vengan desde ese dominio.
 
+### Corregir turnos guardados antes del arreglo de zona horaria
+
+Si la app ya estaba desplegada en Vercel antes del arreglo de zona horaria, los turnos reservados ahí quedaron guardados 3 horas antes (un turno de las 10:00 se guardó como si fuera a las 07:00). Corré una vez, desde tu computadora con el `.env` de producción:
+
+```bash
+npm run fix:timezone                 # simulación: lista cada turno y qué haría, sin escribir nada
+npm run fix:timezone -- --apply      # aplica las correcciones seguras
+```
+
+El script compara cada turno con el horario de atención del negocio. Los que sólo tienen sentido corridos 3 horas se corrigen solos. Los "ambiguos" (que encajan de las dos formas) sólo se corrigen con `--incluir-ambiguos` o de a uno con `--ids=ID1,ID2`. Los turnos creados con `npm run db:seed` desde tu computadora ya están bien. Correrlo dos veces no corrige nada dos veces.
+
 ### Checklist para probar después del deploy
 
 - [ ] Registro de cliente (`/registro`) crea el usuario y te deja logueado.
@@ -108,6 +119,8 @@ El envío de recordatorios (`/api/cron/reminders`) no corre solo: hay que dispar
 - [ ] Reservar un turno como cliente (`/negocios/[slug]/reservar`) y que aparezca en `/mis-turnos`.
 - [ ] El turno aparece en `/panel/agenda` del negocio correspondiente.
 - [ ] Cancelar el turno desde `/mis-turnos` (o cambiarle el estado desde `/panel/agenda`) se refleja en ambos lados.
+- [ ] Un turno reservado a las 10:00 aparece a las 10:00 en `/panel/agenda` y en `/mis-turnos`.
+- [ ] Marcar un turno como realizado lo suma en `/panel/contabilidad`.
 - [ ] Si cargaste SMTP real: llegan los emails de confirmación al cliente y al negocio.
 
 ### Si algo falla en el deploy
@@ -124,4 +137,6 @@ El envío de recordatorios (`/api/cron/reminders`) no corre solo: hay que dispar
 - **Disponibilidad de turnos**: se calcula en `src/lib/slots.ts` a partir del horario de atención del día, la duración del servicio, y los turnos ya confirmados de cada profesional. La reserva en sí (`src/lib/db/appointments.ts`, `createAppointmentTx`) corre dentro de una transacción de Firestore que vuelve a chequear disponibilidad antes de escribir, para evitar que dos personas reserven el mismo horario en simultáneo.
 - **Unicidad del slug de negocio**: como Firestore no tiene constraints únicas como Postgres, la unicidad del slug (`/negocios/{slug}`) se garantiza reservándolo atómicamente en una transacción (`turnia_businessSlugs/{slug}`) al crear el negocio.
 - **Contabilidad**: cada servicio tiene un "costo por turno" opcional (insumos, comisión del profesional, etc.). Al reservar, el turno guarda una copia del precio y del costo del servicio en ese momento, así cambiar un precio después no modifica la contabilidad de meses anteriores (los turnos creados antes de esta función usan el precio/costo actual del servicio). Un turno cuenta como ingreso recién cuando el negocio lo marca como realizado (`COMPLETADO`). El cálculo está en `src/lib/accounting.ts` (función pura, sin acceso a Firestore) y los gastos/ingresos manuales viven en la colección `turnia_movements`.
+- **Zona horaria**: horarios de atención, turnos, "hoy", meses de la contabilidad y emails se interpretan siempre en hora argentina (`America/Argentina/Buenos_Aires`, configurable con `APP_TIMEZONE`), aunque el servidor corra en UTC como en Vercel. Lo fija `src/lib/timezone.ts` al arrancar (vía `src/instrumentation.ts` y `src/lib/firebase-admin.ts`).
+- **Reactivar turnos**: al reactivar un turno cancelado desde la agenda, se verifica en una transacción que el profesional no tenga otro turno en ese horario.
 - **Roles**: `CLIENTE`, `NEGOCIO` (y `ADMIN` reservado para un futuro panel de super-administración de la plataforma, no implementado todavía).
