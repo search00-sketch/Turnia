@@ -19,6 +19,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <Link href="/admin/negocios" className="text-neutral-600 hover:text-brand-600">
           Negocios
         </Link>
+        <Link href="/admin/zona-horaria" className="text-neutral-600 hover:text-brand-600">
+          Zona horaria
+        </Link>
       </div>
       {children}
     </div>

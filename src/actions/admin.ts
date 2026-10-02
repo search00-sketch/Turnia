@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { requireAdminUser } from "@/lib/session";
 import { updateBusiness } from "@/lib/db/businesses";
+import { applyTimezoneFix } from "@/lib/db/timezoneFix";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -41,4 +42,21 @@ export async function adminSetBusinessPaidUntil(
   await updateBusiness(businessId, { paidUntil });
   revalidatePath("/admin/negocios");
   return { ok: true };
+}
+
+export async function adminApplyTimezoneFix(
+  appointmentIds: string[]
+): Promise<{ ok: true; appointments: number; paidUntil: number } | { ok: false; error: string }> {
+  const admin = await requireAdminUser();
+  if (!admin) return { ok: false, error: "AUTH_REQUIRED" };
+
+  const ids = z.array(z.string().min(1)).max(5000).safeParse(appointmentIds);
+  if (!ids.success) return { ok: false, error: "Datos inválidos" };
+
+  const result = await applyTimezoneFix(ids.data);
+  revalidatePath("/admin/zona-horaria");
+  revalidatePath("/admin/negocios");
+  revalidatePath("/panel", "layout");
+  revalidatePath("/mis-turnos");
+  return { ok: true, ...result };
 }

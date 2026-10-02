@@ -103,14 +103,14 @@ El envío de recordatorios (`/api/cron/reminders`) no corre solo: hay que dispar
 
 ### Corregir turnos guardados antes del arreglo de zona horaria
 
-Si la app ya estaba desplegada en Vercel antes del arreglo de zona horaria, los turnos reservados ahí quedaron guardados 3 horas antes (un turno de las 10:00 se guardó como si fuera a las 07:00). Corré una vez, desde tu computadora con el `.env` de producción:
+Si la app ya estaba desplegada en Vercel antes del arreglo de zona horaria, los turnos reservados ahí quedaron guardados 3 horas antes (un turno de las 10:00 se guardó como si fuera a las 07:00). Para corregirlos, entrá a la app publicada con la cuenta de administrador y abrí **`/admin/zona-horaria`** (pestaña "Zona horaria" del panel de administración): lista cada turno con su hora actual y la corregida, y se aplica con un botón.
 
-```bash
-npm run fix:timezone                 # simulación: lista cada turno y qué haría, sin escribir nada
-npm run fix:timezone -- --apply      # aplica las correcciones seguras
-```
+- **Corregir** (vienen marcados): hoy figuran fuera del horario de atención y corridos 3 horas encajan.
+- **Ambiguo**: encajan de las dos formas. Marcalos si los reservó un cliente desde la app publicada; dejalos si los creó `npm run db:seed` desde tu computadora.
+- Los turnos creados después del arreglo y los ya corregidos no aparecen: aplicarlo dos veces no corre nada dos veces.
+- Las fechas "pagado hasta" del admin que se guardaron corridas se corrigen todas.
 
-El script compara cada turno con el horario de atención del negocio. Los que sólo tienen sentido corridos 3 horas se corrigen solos. Los "ambiguos" (que encajan de las dos formas) sólo se corrigen con `--incluir-ambiguos` o de a uno con `--ids=ID1,ID2`. Los turnos creados con `npm run db:seed` desde tu computadora ya están bien. Correrlo dos veces no corrige nada dos veces.
+También existe la versión de consola (`npm run fix:timezone`, y `-- --apply` para aplicar), que necesita las credenciales de Firebase Admin en tu `.env` local. Ojo: si las bajás con `vercel env pull` y en Vercel están marcadas como "Sensitive", llegan como `[SENSITIVE]` y no sirven; en ese caso generá una clave en Firebase > Configuración del proyecto > Cuentas de servicio.
 
 ### Checklist para probar después del deploy
 

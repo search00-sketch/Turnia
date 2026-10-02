@@ -56,6 +56,14 @@ function getAdminApp(): App {
     );
   }
 
+  if (process.env.FIREBASE_PRIVATE_KEY!.trim() === "[SENSITIVE]") {
+    throw new Error(
+      "FIREBASE_PRIVATE_KEY dice \"[SENSITIVE]\": así la deja `vercel env pull` cuando la variable está marcada como " +
+        "sensible en Vercel (no baja el valor real). Generá una clave en Firebase > Configuración del proyecto > " +
+        "Cuentas de servicio y copiá el campo private_key en tu .env."
+    );
+  }
+
   let credential;
   try {
     credential = cert({ projectId, clientEmail, privateKey });
