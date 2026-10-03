@@ -8,7 +8,7 @@ No es una copia 1:1 de Wonoma (nombre, marca y contenidos son propios), sino una
 
 - **Marketplace público**: home con búsqueda y categorías, listado de negocios con filtros, ficha de cada negocio con sus servicios agrupados por categoría.
 - **Reserva de turnos paso a paso**: Servicio → Profesional (o "cualquiera disponible") → Fecha → Hora → Confirmar, calculando en el momento los horarios realmente disponibles según el horario de atención del negocio y los turnos ya ocupados.
-- **Cuentas de cliente**: registro/login con Firebase Authentication, y sección "Mis turnos" para ver próximos turnos, historial, y cancelar.
+- **Cuentas de cliente**: registro/login con Firebase Authentication (email y contraseña con confirmación por mail, o "Continuar con Google"), y sección "Mis turnos" para ver próximos turnos, historial, y cancelar.
 - **Panel del negocio**: cada negocio tiene su propio login y administra su agenda (por día, con cambio de estado de cada turno), sus servicios (con categoría, precio y duración), sus profesionales, sus horarios de atención y los datos de su ficha pública.
 - **Contabilidad del negocio** (`/panel/contabilidad`): estado de resultados mensual con ingresos, gastos, ganancia neta y margen, desglosado por cada servicio/producto. Los ingresos salen solos de los turnos marcados como realizados (con el precio y el costo por turno del servicio), y el negocio puede cargar a mano gastos (insumos, alquiler, sueldos...) e ingresos extra (venta de productos), imputados a un servicio o agrupados por concepto.
 - **Emails automáticos**: confirmación al reservar (a cliente y a negocio) y recordatorio ~24hs antes del turno.
@@ -33,6 +33,11 @@ Turnia sólo necesita un proyecto de Firebase (Authentication + Firestore). No h
 3. **Firestore Database** → creá la base si todavía no existe (modo producción; las reglas de datos no importan para esta app porque nunca se accede desde el navegador).
 4. **Configuración del proyecto** (ícono de engranaje) → pestaña "General" → sección "Tus apps" → agregá una app **Web** (el ícono `</>`). Ahí te va a mostrar un objeto `firebaseConfig` con `apiKey`, `authDomain`, `projectId`, `storageBucket`, `messagingSenderId`, `appId`: son los 6 valores `NEXT_PUBLIC_FIREBASE_*` del paso 2. Son públicos, no pasa nada si quedan visibles en el navegador.
 5. **Configuración del proyecto** → pestaña "Cuentas de servicio" → botón "Generar nueva clave privada". Se descarga un `.json` con `project_id`, `client_email` y `private_key`: son `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL` y `FIREBASE_PRIVATE_KEY` del paso 2. **Estas sí son secretas** (le dan a quien las tenga acceso total a administrar Authentication y Firestore de ese proyecto): no las subas al repo ni las compartas.
+
+### 1.a Login con Google y confirmación de email
+
+- **Google**: en Authentication → "Sign-in method", habilitá también el proveedor **Google** (elegí un email de soporte y guardá). En Authentication → Settings → "Authorized domains" tiene que estar el dominio de la app publicada (por ejemplo `turnia-teal.vercel.app`); si falta, la ventana de Google da error.
+- **Confirmación de email**: no hay que configurar nada. Quien se registra con email y contraseña recibe un mail de Firebase (en español) y no puede ingresar hasta confirmarlo. Las cuentas creadas antes de esta función y las de Google no lo necesitan. Los formularios también avisan de errores de tipeo comunes en el email ("gmial.com" → "gmail.com").
 
 ## 2. Puesta en marcha en tu computadora
 

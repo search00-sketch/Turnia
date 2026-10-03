@@ -141,7 +141,7 @@ export class SlugTakenError extends Error {}
  */
 export async function createBusinessOwnerBatch(input: {
   ownerId: string;
-  ownerData: { name: string; lastName?: string; email: string; phone?: string };
+  ownerData: { name: string; lastName?: string; email: string; phone?: string; requiresEmailVerification?: boolean };
   businessData: {
     slug: string;
     name: string;
@@ -167,6 +167,7 @@ export async function createBusinessOwnerBatch(input: {
         email: input.ownerData.email,
         phone: input.ownerData.phone ?? null,
         role: "NEGOCIO",
+        requiresEmailVerification: input.ownerData.requiresEmailVerification ?? false,
         createdAt: new Date(),
       });
 

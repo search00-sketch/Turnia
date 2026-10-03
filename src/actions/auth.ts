@@ -6,6 +6,8 @@ import { createUser, getUserByUid } from "@/lib/db/users";
 import { isSlugTaken, createBusinessOwnerBatch, SlugTakenError } from "@/lib/db/businesses";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
+/** needsVerification: la cuenta es de email y contraseña sin confirmar; hay que mandar el mail. */
+export type RegisterResult = { ok: true; needsVerification: boolean } | { ok: false; error: string };
 
 const ROLE_LABEL: Record<string, string> = {
   CLIENTE: "cliente",
@@ -28,6 +30,13 @@ async function verifyToken(idToken: string) {
   }
 }
 
+type DecodedToken = NonNullable<Awaited<ReturnType<typeof verifyToken>>>;
+
+/** Las cuentas de email y contraseña tienen que confirmar el email; las de Google ya vienen confirmadas. */
+function needsEmailVerification(decoded: DecodedToken): boolean {
+  return decoded.firebase.sign_in_provider === "password" && decoded.email_verified !== true;
+}
+
 const clientSchema = z.object({
   idToken: z.string().min(1),
   name: z.string().min(1, "Ingresá tu nombre"),
@@ -40,7 +49,7 @@ const clientSchema = z.object({
  * el navegador ya creó (createUserWithEmailAndPassword). El idToken se verifica
  * acá para no confiar ciegamente en lo que manda el cliente.
  */
-export async function registerClient(input: unknown): Promise<ActionResult> {
+export async function registerClient(input: unknown): Promise<RegisterResult> {
   const parsed = clientSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
@@ -53,17 +62,45 @@ export async function registerClient(input: unknown): Promise<ActionResult> {
 
   const existing = await getUserByUid(decoded.uid);
   if (existing) {
-    return existing.role === "CLIENTE" ? { ok: true } : { ok: false, error: emailInUseByOtherRole(existing.role) };
+    return existing.role === "CLIENTE"
+      ? { ok: true, needsVerification: existing.requiresEmailVerification && decoded.email_verified !== true }
+      : { ok: false, error: emailInUseByOtherRole(existing.role) };
   }
 
+  const needsVerification = needsEmailVerification(decoded);
   await createUser(decoded.uid, {
     name,
     lastName,
     email: decoded.email.toLowerCase(),
     phone,
     role: "CLIENTE",
+    requiresEmailVerification: needsVerification,
   });
 
+  return { ok: true, needsVerification };
+}
+
+/**
+ * Alta como cliente de alguien que entró con Google y todavía no tiene perfil.
+ * El nombre sale de la cuenta de Google (se puede editar más adelante).
+ */
+export async function registerGoogleClient(idToken: string): Promise<ActionResult> {
+  const decoded = await verifyToken(idToken);
+  if (!decoded) return { ok: false, error: "No pudimos verificar tu cuenta. Probá de nuevo." };
+  if (!decoded.email) return { ok: false, error: "Tu cuenta de Google no tiene un email asociado." };
+
+  const existing = await getUserByUid(decoded.uid);
+  if (existing) {
+    return existing.role === "CLIENTE" ? { ok: true } : { ok: false, error: emailInUseByOtherRole(existing.role) };
+  }
+
+  const [name, ...rest] = (decoded.name ?? decoded.email.split("@")[0]).trim().split(/\s+/);
+  await createUser(decoded.uid, {
+    name: name || "Cliente",
+    lastName: rest.join(" ") || undefined,
+    email: decoded.email.toLowerCase(),
+    role: "CLIENTE",
+  });
   return { ok: true };
 }
 
@@ -99,7 +136,7 @@ const STANDARD_HOURS = [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
   closeTime: dayOfWeek === 0 ? null : "20:00",
 }));
 
-export async function registerBusiness(input: unknown): Promise<ActionResult> {
+export async function registerBusiness(input: unknown): Promise<RegisterResult> {
   const parsed = businessSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
@@ -118,6 +155,7 @@ export async function registerBusiness(input: unknown): Promise<ActionResult> {
     return { ok: false, error: emailInUseByOtherRole(existingUser.role) };
   }
 
+  const needsVerification = needsEmailVerification(decoded);
   const baseSlug = slugify(data.businessName);
   let slug = baseSlug;
   let i = 1;
@@ -140,6 +178,7 @@ export async function registerBusiness(input: unknown): Promise<ActionResult> {
           lastName: data.ownerLastName,
           email: decoded.email.toLowerCase(),
           phone: data.phone,
+          requiresEmailVerification: needsVerification,
         },
         businessData: {
           slug,
@@ -152,7 +191,7 @@ export async function registerBusiness(input: unknown): Promise<ActionResult> {
         },
         hours: STANDARD_HOURS,
       });
-      return { ok: true };
+      return { ok: true, needsVerification };
     } catch (err) {
       if (err instanceof SlugTakenError) {
         slug = `${baseSlug}-${i++}`;

@@ -7,6 +7,9 @@ const MESSAGES: Record<string, string> = {
   "auth/email-already-in-use": "Ya existe una cuenta con ese email.",
   "auth/weak-password": "La contraseña debe tener al menos 6 caracteres.",
   "auth/network-request-failed": "Problema de conexión. Revisá tu internet e intentá de nuevo.",
+  "auth/missing-password": "Ingresá tu contraseña.",
+  "auth/user-disabled": "Esta cuenta está deshabilitada.",
+  "auth/account-exists-with-different-credential": "Ya existe una cuenta con ese email. Ingresá con email y contraseña.",
 };
 
 export function firebaseErrorMessage(code: unknown): string {

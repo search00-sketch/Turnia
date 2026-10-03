@@ -10,6 +10,12 @@ export interface UserDoc {
   email: string;
   phone: string | null;
   role: Role;
+  /**
+   * true para cuentas creadas con email y contraseña desde que existe la
+   * confirmación por mail: no pueden iniciar sesión hasta confirmar el email.
+   * Las cuentas anteriores (sin el campo) y las de Google no lo requieren.
+   */
+  requiresEmailVerification: boolean;
   createdAt: Date;
 }
 
@@ -22,6 +28,7 @@ export function mapUserDoc(snap: FirebaseFirestore.DocumentSnapshot): UserDoc {
     email: data.email,
     phone: data.phone ?? null,
     role: data.role,
+    requiresEmailVerification: data.requiresEmailVerification === true,
     createdAt: data.createdAt.toDate(),
   };
 }
@@ -33,7 +40,14 @@ export async function getUserByUid(uid: string): Promise<UserDoc | null> {
 
 export async function createUser(
   uid: string,
-  data: { name: string; lastName?: string; email: string; phone?: string; role: Role }
+  data: {
+    name: string;
+    lastName?: string;
+    email: string;
+    phone?: string;
+    role: Role;
+    requiresEmailVerification?: boolean;
+  }
 ): Promise<void> {
   await getAdminDb()
     .collection(COLLECTIONS.users)
@@ -44,6 +58,7 @@ export async function createUser(
       email: data.email,
       phone: data.phone ?? null,
       role: data.role,
+      requiresEmailVerification: data.requiresEmailVerification ?? false,
       createdAt: new Date(),
     });
 }

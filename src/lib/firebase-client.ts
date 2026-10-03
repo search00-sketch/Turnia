@@ -30,6 +30,8 @@ export function getFirebaseAuth(): Auth {
   }
   if (!auth) {
     auth = getAuth(app);
+    // Mails de Firebase (confirmación de email) y ventana de Google en español.
+    auth.languageCode = "es";
   }
   return auth;
 }

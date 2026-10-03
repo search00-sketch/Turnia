@@ -7,6 +7,9 @@ import { SESSION_COOKIE_MAX_AGE_MS, SESSION_COOKIE_NAME } from "@/lib/session-co
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
+/** Código de error de createSessionCookie cuando falta confirmar el email. */
+const EMAIL_NOT_VERIFIED = "EMAIL_NOT_VERIFIED";
+
 export type SessionResult = { ok: true; hasProfile: boolean } | { ok: false; error: string };
 
 /**
@@ -20,6 +23,12 @@ export async function createSessionCookie(idToken: string): Promise<SessionResul
     // Verificamos el token antes de confiar en él (evita que cualquiera mande un
     // token trucho e intente que le generemos una cookie de sesión).
     const decoded = await auth.verifyIdToken(idToken);
+
+    // Cuentas nuevas de email y contraseña: sin email confirmado no hay sesión.
+    const profile = await getUserByUid(decoded.uid);
+    if (profile?.requiresEmailVerification && decoded.email_verified !== true) {
+      return { ok: false, error: EMAIL_NOT_VERIFIED };
+    }
 
     const cookieValue = await auth.createSessionCookie(idToken, {
       expiresIn: SESSION_COOKIE_MAX_AGE_MS,
@@ -35,7 +44,6 @@ export async function createSessionCookie(idToken: string): Promise<SessionResul
 
     // Una cuenta de Firebase sin perfil en Firestore es un registro que quedó a
     // medias: el login lo avisa para que se complete desde el registro.
-    const profile = await getUserByUid(decoded.uid);
     return { ok: true, hasProfile: Boolean(profile) };
   } catch (err) {
     console.error("No se pudo crear la sesión", err);

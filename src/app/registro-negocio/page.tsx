@@ -1,16 +1,31 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { onAuthStateChanged, signOut, type User } from "firebase/auth";
+import { getFirebaseAuth } from "@/lib/firebase-client";
 import Link from "next/link";
-import { getOrCreateAuthAccount, rollbackAuthAccount } from "@/lib/register-account";
+import {
+  getOrCreateAuthAccount,
+  rollbackAuthAccount,
+  sendVerificationEmail,
+  signInWithGoogle,
+} from "@/lib/register-account";
+import EmailInput from "@/components/email-input";
+import GoogleButton, { OrDivider } from "@/components/google-button";
+import VerifyEmailNotice from "@/components/verify-email-notice";
 import { firebaseErrorMessage } from "@/lib/firebase-errors";
 import { registerBusiness } from "@/actions/auth";
 import { createSessionCookie } from "@/actions/session";
 import { CATEGORIES } from "@/lib/config";
 
-export default function RegistroNegocioPage() {
+function isGoogleUser(user: User | null): user is User {
+  return Boolean(user?.providerData.some((p) => p.providerId === "google.com"));
+}
+
+function RegistroNegocioForm() {
   const router = useRouter();
+  const params = useSearchParams();
   const [form, setForm] = useState({
     ownerName: "",
     ownerLastName: "",
@@ -25,6 +40,43 @@ export default function RegistroNegocioPage() {
   });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [googleUser, setGoogleUser] = useState<User | null>(null);
+  const [pendingVerification, setPendingVerification] = useState<User | null>(null);
+
+  function applyGoogleAccount(user: User) {
+    const [first, ...rest] = (user.displayName ?? "").trim().split(/\s+/);
+    setGoogleUser(user);
+    setForm((f) => ({
+      ...f,
+      email: user.email ?? f.email,
+      ownerName: f.ownerName || first || "",
+      ownerLastName: f.ownerLastName || rest.join(" "),
+    }));
+  }
+
+  // Viene de "Tengo un negocio" en el login con Google: reutiliza esa cuenta.
+  useEffect(() => {
+    if (params.get("google") !== "1") return;
+    return onAuthStateChanged(getFirebaseAuth(), (user) => {
+      if (isGoogleUser(user)) applyGoogleAccount(user);
+    });
+  }, [params]);
+
+  async function handleGoogle() {
+    setError(null);
+    const res = await signInWithGoogle();
+    if (!res.ok) {
+      setError(res.error);
+      return;
+    }
+    applyGoogleAccount(res.user);
+  }
+
+  async function stopUsingGoogle() {
+    await signOut(getFirebaseAuth()).catch(() => {});
+    setGoogleUser(null);
+    setForm((f) => ({ ...f, email: "" }));
+  }
 
   function update(field: string, value: string) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -35,7 +87,9 @@ export default function RegistroNegocioPage() {
     setError(null);
     setLoading(true);
 
-    const account = await getOrCreateAuthAccount(form.email, form.password);
+    const account = googleUser
+      ? ({ ok: true, user: googleUser, createdNow: false } as const)
+      : await getOrCreateAuthAccount(form.email, form.password);
     if (!account.ok) {
       setError(account.error);
       setLoading(false);
@@ -59,12 +113,21 @@ export default function RegistroNegocioPage() {
       });
 
       if (!result.ok) {
-        await rollbackAuthAccount(account.user, account.createdNow);
+        // Con Google no se deshace nada: puede corregir el formulario y reintentar.
+        if (!googleUser) await rollbackAuthAccount(account.user, account.createdNow);
         setError(result.error);
         setLoading(false);
         return;
       }
       registered = true;
+
+      if (result.needsVerification) {
+        const sent = await sendVerificationEmail(account.user);
+        if (!sent.ok) setError(`Tu cuenta se creó, pero no pudimos mandar el mail de confirmación: ${sent.error}`);
+        setPendingVerification(account.user);
+        setLoading(false);
+        return;
+      }
 
       const sessionResult = await createSessionCookie(idToken);
       setLoading(false);
@@ -77,11 +140,29 @@ export default function RegistroNegocioPage() {
       router.push("/panel");
       router.refresh();
     } catch (err) {
-      if (!registered) await rollbackAuthAccount(account.user, account.createdNow);
+      if (!registered && !googleUser) await rollbackAuthAccount(account.user, account.createdNow);
       const code = (err as { code?: string })?.code;
       setError(firebaseErrorMessage(code));
       setLoading(false);
     }
+  }
+
+  if (pendingVerification) {
+    return (
+      <div className="section max-w-md py-16">
+        <div className="card p-8 space-y-4">
+          <h1 className="text-2xl font-bold">¡Tu negocio está creado!</h1>
+          <VerifyEmailNotice email={pendingVerification.email ?? form.email} user={pendingVerification} />
+          <p className="text-sm text-neutral-500">
+            Cuando confirmes el email, ingresá y vas a ver tu panel para cargar servicios, profesionales y horarios.
+          </p>
+          {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+          <Link href="/login?callbackUrl=/panel" className="btn-primary w-full">
+            Ir a ingresar
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -96,6 +177,19 @@ export default function RegistroNegocioPage() {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <h2 className="text-sm font-semibold text-neutral-800 mb-3">Tus datos</h2>
+            {googleUser ? (
+              <p className="text-sm text-neutral-600 bg-neutral-50 rounded-lg px-3 py-2 mb-3">
+                Vas a ingresar con tu cuenta de Google <strong>{googleUser.email}</strong>.{" "}
+                <button type="button" className="font-semibold text-brand-600 underline" onClick={stopUsingGoogle}>
+                  Usar otro email
+                </button>
+              </p>
+            ) : (
+              <div className="space-y-4 mb-4">
+                <GoogleButton onClick={handleGoogle} disabled={loading} label="Usar mi cuenta de Google" />
+                <OrDivider />
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label" htmlFor="ownerName">Nombre</label>
@@ -109,17 +203,19 @@ export default function RegistroNegocioPage() {
             <div className="grid grid-cols-2 gap-3 mt-3">
               <div>
                 <label className="label" htmlFor="email">Email</label>
-                <input id="email" type="email" required className="input" value={form.email} onChange={(e) => update("email", e.target.value)} />
+                <EmailInput value={form.email} onChange={(v) => update("email", v)} disabled={Boolean(googleUser)} />
               </div>
               <div>
                 <label className="label" htmlFor="phone">Teléfono</label>
                 <input id="phone" className="input" value={form.phone} onChange={(e) => update("phone", e.target.value)} />
               </div>
             </div>
-            <div className="mt-3">
-              <label className="label" htmlFor="password">Contraseña</label>
-              <input id="password" type="password" required minLength={6} className="input" value={form.password} onChange={(e) => update("password", e.target.value)} />
-            </div>
+            {!googleUser && (
+              <div className="mt-3">
+                <label className="label" htmlFor="password">Contraseña</label>
+                <input id="password" type="password" required minLength={6} autoComplete="new-password" className="input" value={form.password} onChange={(e) => update("password", e.target.value)} />
+              </div>
+            )}
           </div>
 
           <div className="border-t border-neutral-100 pt-6">
@@ -165,5 +261,13 @@ export default function RegistroNegocioPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function RegistroNegocioPage() {
+  return (
+    <Suspense>
+      <RegistroNegocioForm />
+    </Suspense>
   );
 }
