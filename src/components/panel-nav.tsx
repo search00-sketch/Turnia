@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 
 const LINKS = [
@@ -15,6 +16,12 @@ const LINKS = [
 
 export default function PanelNav() {
   const pathname = usePathname();
+  const activeRef = useRef<HTMLAnchorElement>(null);
+
+  // En celular el menú se desplaza de costado: que la sección actual quede a la vista.
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [pathname]);
 
   return (
     <nav className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible pb-2 md:pb-0">
@@ -24,6 +31,7 @@ export default function PanelNav() {
           <Link
             key={link.href}
             href={link.href}
+            ref={active ? activeRef : undefined}
             className={`shrink-0 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-colors ${
               active ? "bg-brand-600 text-white" : "text-neutral-600 hover:bg-neutral-100"
             }`}

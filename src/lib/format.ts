@@ -2,8 +2,9 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
 export function formatDateLong(date: Date): string {
-  // ej: "martes, 12 de agosto"
-  return format(date, "EEEE d 'de' MMMM", { locale: es });
+  // ej: "Martes 12 de agosto" (mayúscula sólo al principio, como se escribe en castellano)
+  const text = format(date, "EEEE d 'de' MMMM", { locale: es });
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 export function formatDateShort(date: Date): string {

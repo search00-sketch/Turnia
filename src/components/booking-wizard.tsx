@@ -363,7 +363,7 @@ export default function BookingWizard({ business, services, professionals, initi
               </div>
               <div className="flex justify-between">
                 <dt className="text-neutral-500">Fecha</dt>
-                <dd className="font-medium capitalize">{formatDateLong(new Date(`${dateISO}T00:00:00`))}</dd>
+                <dd className="font-medium">{formatDateLong(new Date(`${dateISO}T00:00:00`))}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-neutral-500">Hora</dt>

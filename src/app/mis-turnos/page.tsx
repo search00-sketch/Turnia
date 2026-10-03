@@ -47,7 +47,7 @@ export default async function MisTurnosPage() {
             </Link>
           </p>
           <p className="text-sm text-neutral-600">{a.service.name} · con {a.professional.name}</p>
-          <p className="text-sm text-neutral-500 mt-1 capitalize">
+          <p className="text-sm text-neutral-500 mt-1">
             {formatDateLong(a.startsAt)} a las {formatTime(a.startsAt)}
           </p>
           <p className="text-sm font-medium text-brand-600 mt-1">{formatPrice(a.service.price)}</p>

@@ -1,5 +1,5 @@
 import { initializeApp, getApps, type FirebaseApp, type FirebaseOptions } from "firebase/app";
-import { getAuth, type Auth } from "firebase/auth";
+import { connectAuthEmulator, getAuth, type Auth } from "firebase/auth";
 
 const firebaseConfig: FirebaseOptions = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -32,6 +32,11 @@ export function getFirebaseAuth(): Auth {
     auth = getAuth(app);
     // Mails de Firebase (confirmación de email) y ventana de Google en español.
     auth.languageCode = "es";
+    // Sólo para desarrollo/pruebas con el emulador de Firebase (nunca se define en producción).
+    const emulatorHost = process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST;
+    if (emulatorHost) {
+      connectAuthEmulator(auth, `http://${emulatorHost}`, { disableWarnings: true });
+    }
   }
   return auth;
 }

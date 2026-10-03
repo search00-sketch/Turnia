@@ -17,7 +17,9 @@ import VerifyEmailNotice from "@/components/verify-email-notice";
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const callbackUrl = params.get("callbackUrl") || "/";
+  // Sólo destinos dentro de la app ("/algo"), nunca otro sitio ("https://..." o "//...").
+  const rawCallback = params.get("callbackUrl");
+  const callbackUrl = rawCallback && rawCallback.startsWith("/") && !rawCallback.startsWith("//") ? rawCallback : null;
   const justVerified = params.get("verificado") === "1";
 
   const [email, setEmail] = useState("");
@@ -62,7 +64,9 @@ function LoginForm() {
       return;
     }
 
-    router.push(callbackUrl);
+    // Sin destino pedido, cada uno va a su lugar: el negocio a su panel, el admin al suyo.
+    const home = result.role === "NEGOCIO" ? "/panel" : result.role === "ADMIN" ? "/admin" : "/";
+    router.push(callbackUrl || home);
     router.refresh();
   }
 

@@ -75,14 +75,14 @@ export default function MovementsManager({
 
   return (
     <div className="card p-6 space-y-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="font-semibold text-neutral-900">Gastos e ingresos cargados</h2>
           <p className="text-sm text-neutral-500">
             Compras de insumos, alquiler, sueldos, venta de productos... Imputalos a un servicio o agrupalos por concepto.
           </p>
         </div>
-        <button className="btn-primary shrink-0" onClick={() => setShowForm((v) => !v)}>
+        <button className="btn-primary shrink-0 self-start sm:self-auto" onClick={() => setShowForm((v) => !v)}>
           {showForm ? "Cancelar" : "+ Cargar movimiento"}
         </button>
       </div>

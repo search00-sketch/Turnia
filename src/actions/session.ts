@@ -10,7 +10,9 @@ export type ActionResult = { ok: true } | { ok: false; error: string };
 /** Código de error de createSessionCookie cuando falta confirmar el email. */
 const EMAIL_NOT_VERIFIED = "EMAIL_NOT_VERIFIED";
 
-export type SessionResult = { ok: true; hasProfile: boolean } | { ok: false; error: string };
+export type SessionResult =
+  | { ok: true; hasProfile: boolean; role: "CLIENTE" | "NEGOCIO" | "ADMIN" | null }
+  | { ok: false; error: string };
 
 /**
  * Cambia un ID token de Firebase (de corta duración, del cliente) por una cookie
@@ -44,7 +46,7 @@ export async function createSessionCookie(idToken: string): Promise<SessionResul
 
     // Una cuenta de Firebase sin perfil en Firestore es un registro que quedó a
     // medias: el login lo avisa para que se complete desde el registro.
-    return { ok: true, hasProfile: Boolean(profile) };
+    return { ok: true, hasProfile: Boolean(profile), role: profile?.role ?? null };
   } catch (err) {
     console.error("No se pudo crear la sesión", err);
     return { ok: false, error: "No pudimos iniciar tu sesión. Probá de nuevo." };

@@ -66,7 +66,7 @@ export default async function AgendaPage({ searchParams }: Props) {
         </Link>
       </div>
 
-      <h2 className="font-semibold text-neutral-900 capitalize mb-4">{formatDateLong(selected)}</h2>
+      <h2 className="font-semibold text-neutral-900 mb-4">{formatDateLong(selected)}</h2>
 
       {appointments.length === 0 ? (
         <div className="card p-6 text-sm text-neutral-500">No hay turnos para este día.</div>

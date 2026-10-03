@@ -79,6 +79,18 @@ export default async function PanelDashboardPage() {
         )}
       </div>
 
+      {services.length > 0 && professionals.length === 0 && (
+        <div className="card p-6 bg-amber-50 border-amber-100">
+          <p className="text-sm text-amber-800">
+            Todavía no cargaste profesionales, así que nadie puede reservarte un turno.{" "}
+            <Link href="/panel/profesionales" className="font-semibold underline">
+              Cargá tu primer profesional
+            </Link>
+            .
+          </p>
+        </div>
+      )}
+
       {services.length === 0 && (
         <div className="card p-6 bg-amber-50 border-amber-100">
           <p className="text-sm text-amber-800">

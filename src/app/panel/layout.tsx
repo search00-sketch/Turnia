@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
-import { requireBusinessUser } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
 import PanelNav from "@/components/panel-nav";
 
 export default async function PanelLayout({ children }: { children: React.ReactNode }) {
-  const user = await requireBusinessUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/login?callbackUrl=/panel");
+  // Logueado pero sin negocio (cliente o admin): al inicio, no al login.
+  if (user.role !== "NEGOCIO" || !user.business) redirect("/");
 
   return (
     <div className="section py-8">
