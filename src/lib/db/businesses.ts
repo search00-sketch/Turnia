@@ -1,6 +1,5 @@
 import { getAdminDb } from "@/lib/firebase-admin";
 import { COLLECTIONS } from "@/lib/db/collections";
-import { getBookableBusinessIds } from "@/lib/db/bookable";
 import { hourRef } from "@/lib/db/hours";
 import { mapUserDoc, type UserDoc } from "@/lib/db/users";
 
@@ -11,6 +10,8 @@ export interface BusinessDoc {
   category: string;
   description: string | null;
   address: string | null;
+  /** Barrio o localidad, para mostrar en las tarjetas del buscador (ej: "Palermo"). */
+  neighborhood: string | null;
   phone: string | null;
   whatsapp: string | null;
   coverImage: string | null;
@@ -30,6 +31,7 @@ export function mapBusinessDoc(snap: FirebaseFirestore.DocumentSnapshot): Busine
     category: data.category,
     description: data.description ?? null,
     address: data.address ?? null,
+    neighborhood: data.neighborhood ?? null,
     phone: data.phone ?? null,
     whatsapp: data.whatsapp ?? null,
     coverImage: data.coverImage ?? null,
@@ -63,27 +65,6 @@ export async function getBusinessByOwnerId(ownerId: string): Promise<BusinessDoc
   return snap.empty ? null : mapBusinessDoc(snap.docs[0]);
 }
 
-/**
- * Negocios visibles en el marketplace: publicados y con al menos un servicio
- * y un profesional activos (si no, el cliente no tendría nada para reservar).
- */
-export async function getPublishedBusinesses(
-  opts: { category?: string; take?: number } = {}
-): Promise<BusinessDoc[]> {
-  let query: FirebaseFirestore.Query = getAdminDb()
-    .collection(COLLECTIONS.businesses)
-    .where("published", "==", true);
-  if (opts.category) {
-    query = query.where("category", "==", opts.category);
-  }
-  const snap = await query.get();
-  const published = snap.docs.map(mapBusinessDoc);
-  const bookable = await getBookableBusinessIds(published.map((b) => b.id));
-  const businesses = published.filter((b) => bookable.has(b.id));
-  businesses.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-  return opts.take ? businesses.slice(0, opts.take) : businesses;
-}
-
 export async function isSlugTaken(slug: string): Promise<boolean> {
   const snap = await getAdminDb()
     .collection(COLLECTIONS.businesses)
@@ -100,6 +81,7 @@ export async function updateBusiness(
     category: string;
     description: string;
     address: string;
+    neighborhood: string;
     phone: string;
     whatsapp: string;
     coverImage: string | null;
@@ -115,7 +97,7 @@ export interface BusinessWithOwner extends BusinessDoc {
 }
 
 /**
- * Trae TODOS los negocios (publicados o no, a diferencia de getPublishedBusinesses)
+ * Trae TODOS los negocios (publicados o no, a diferencia del marketplace en lib/db/marketplace.ts)
  * con los datos del dueño hidratados, para /admin/negocios. Uso exclusivo del
  * panel de administración.
  */

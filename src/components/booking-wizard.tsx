@@ -13,6 +13,8 @@ import {
 } from "@/lib/format";
 import { nextDaysFrom } from "@/lib/slots";
 import Avatar from "@/components/avatar";
+import { Sketch } from "@/components/sketch";
+import { IconBack } from "@/components/icons";
 
 interface ServiceOption {
   id: string;
@@ -38,6 +40,14 @@ interface BookingWizardProps {
   initial: { servicio?: string; profesional?: string; fecha?: string; hora?: string };
   user: { id: string; role: string } | null;
 }
+
+const STEP_TITLES: Record<number, string> = {
+  1: "Elegí el servicio",
+  2: "Elegí con quién",
+  3: "Elegí el día",
+  4: "Elegí la hora",
+  5: "Confirmá tu turno",
+};
 
 const STEPS = [
   { n: 1, label: "Servicio" },
@@ -198,13 +208,18 @@ export default function BookingWizard({
     setSuccess(true);
   }
 
+  const selectedProfessionalName =
+    professionalId === "any" ? "Cualquiera disponible" : professionals.find((p) => p.id === professionalId)?.name;
+  const morning = availableTimes.filter((t) => t < "13:00");
+  const afternoon = availableTimes.filter((t) => t >= "13:00");
+
   if (success) {
     return (
-      <div className="card p-10 text-center max-w-lg mx-auto">
-        <div className="text-4xl mb-3">✅</div>
-        <h2 className="text-xl font-bold mb-2">¡Turno confirmado!</h2>
-        <p className="text-neutral-500 mb-6">
-          Te enviamos un email con los detalles de tu turno en {business.name}.
+      <div className="card relative overflow-hidden p-8 md:p-10 text-center max-w-lg mx-auto">
+        <Sketch name="sparkle" className="mx-auto mb-3 h-16 w-16 text-brand-500" />
+        <h2 className="text-2xl font-extrabold text-plum-900 mb-2">¡Turno confirmado!</h2>
+        <p className="text-plum-500 mb-6">
+          Te mandamos un mail con los detalles de tu turno en {business.name}.
         </p>
         <Link href="/mis-turnos" className="btn-primary">
           Ver mis turnos
@@ -213,99 +228,114 @@ export default function BookingWizard({
     );
   }
 
-  return (
-    <div>
-      <ol className="flex items-center justify-between mb-8 max-w-2xl mx-auto">
-        {STEPS.map((s, idx) => (
-          <li key={s.n} className="flex-1 flex items-center">
-            <button
-              onClick={() => goToStep(s.n)}
-              disabled={s.n > maxStep}
-              className={`h-8 w-8 shrink-0 rounded-full text-sm font-bold flex items-center justify-center transition-colors ${
-                s.n === step
-                  ? "bg-brand-600 text-white"
-                  : s.n < step
-                  ? "bg-brand-100 text-brand-700"
-                  : "bg-neutral-100 text-neutral-400"
-              }`}
-            >
-              {s.n}
-            </button>
-            <span
-              className={`ml-2 text-xs font-medium hidden sm:inline ${
-                s.n === step ? "text-brand-700" : "text-neutral-400"
-              }`}
-            >
-              {s.label}
-            </span>
-            {idx < STEPS.length - 1 && <span className="flex-1 h-px bg-neutral-200 mx-2" />}
-          </li>
-        ))}
-      </ol>
+  const current = STEPS.find((s) => s.n === step)!;
 
-      <div className="card p-6 sm:p-8 max-w-2xl mx-auto">
+  return (
+    <div className="max-w-2xl mx-auto">
+      {/* Paso actual, avance y lo ya elegido */}
+      <div className="mb-5 space-y-3">
+        <div className="flex items-center gap-3">
+          {step > 1 && (
+            <button
+              onClick={() => goToStep(step - 1)}
+              aria-label="Paso anterior"
+              className="grid h-9 w-9 place-items-center rounded-full bg-white border border-plum-100 text-plum-900"
+            >
+              <IconBack className="h-4 w-4" />
+            </button>
+          )}
+          <h2 className="text-lg font-extrabold text-plum-900">{STEP_TITLES[step]}</h2>
+          <span className="ml-auto text-sm font-semibold text-plum-400">
+            Paso {step} de {STEPS.length}
+          </span>
+        </div>
+        <div className="h-1.5 rounded-full bg-plum-100 overflow-hidden" role="progressbar" aria-valuemin={1} aria-valuemax={STEPS.length} aria-valuenow={step} aria-label={current.label}>
+          <div className="h-full rounded-full bg-brand-600 transition-all" style={{ width: `${(step / STEPS.length) * 100}%` }} />
+        </div>
+        {(selectedService || selectedProfessionalName || dateISO) && (
+          <div className="flex flex-wrap gap-2">
+            {selectedService && step > 1 && (
+              <button onClick={() => goToStep(1)} className="rounded-full bg-white border border-plum-100 px-3 py-1 text-xs font-bold text-plum-900">
+                {selectedService.name} · {formatPrice(selectedService.price)}
+              </button>
+            )}
+            {selectedProfessionalName && step > 2 && (
+              <button onClick={() => goToStep(2)} className="rounded-full bg-white border border-plum-100 px-3 py-1 text-xs font-bold text-plum-900">
+                {selectedProfessionalName}
+              </button>
+            )}
+            {dateISO && step > 3 && (
+              <button onClick={() => goToStep(3)} className="rounded-full bg-white border border-plum-100 px-3 py-1 text-xs font-bold text-plum-900">
+                {formatDateLong(new Date(`${dateISO}T00:00:00`))}
+                {time && step > 4 ? ` · ${time}` : ""}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="card p-5 sm:p-7">
         {step === 1 && (
-          <div>
-            <h2 className="font-semibold text-lg mb-4">Elegí un servicio</h2>
-            <div className="space-y-2">
-              {services.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => selectService(s.id)}
-                  className="w-full text-left rounded-lg border border-neutral-200 p-4 hover:border-brand-400 hover:bg-brand-50 transition-colors flex items-center justify-between gap-4"
-                >
-                  <div>
-                    <p className="font-medium text-neutral-900">{s.name}</p>
-                    {s.description && (
-                      <p className="text-xs text-neutral-400 mt-0.5 line-clamp-1">{s.description}</p>
-                    )}
-                    <p className="text-sm text-neutral-500 mt-1">{formatDuration(s.durationMin)}</p>
-                  </div>
-                  <span className="font-semibold text-brand-600 shrink-0">{formatPrice(s.price)}</span>
-                </button>
-              ))}
-            </div>
+          <div className="space-y-2">
+            {services.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => selectService(s.id)}
+                className={`w-full text-left rounded-2xl border p-4 transition-colors flex items-center justify-between gap-4 ${
+                  serviceId === s.id ? "border-brand-600 bg-brand-50" : "border-plum-100 hover:border-brand-400 hover:bg-brand-50"
+                }`}
+              >
+                <div className="min-w-0">
+                  <p className="font-bold text-plum-900">{s.name}</p>
+                  {s.description && <p className="text-xs text-plum-400 mt-0.5 line-clamp-1">{s.description}</p>}
+                  <p className="text-sm text-plum-500 mt-1">{formatDuration(s.durationMin)}</p>
+                </div>
+                <span className="font-extrabold text-plum-900 shrink-0">{formatPrice(s.price)}</span>
+              </button>
+            ))}
           </div>
         )}
 
         {step === 2 && (
-          <div>
-            <h2 className="font-semibold text-lg mb-4">Elegí un profesional</h2>
-            <div className="space-y-2">
+          <div className="space-y-2">
+            <button
+              onClick={() => selectProfessional("any")}
+              className="w-full text-left rounded-2xl border border-plum-100 p-4 hover:border-brand-400 hover:bg-brand-50 transition-colors flex items-center gap-3"
+            >
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-sand-100 text-plum-700">
+                <Sketch name="sparkle" className="h-6 w-6" />
+              </span>
+              <span>
+                <span className="block font-bold text-plum-900">Cualquiera disponible</span>
+                <span className="block text-sm text-plum-500">Te asignamos el primer profesional libre</span>
+              </span>
+            </button>
+            {professionals.map((p) => (
               <button
-                onClick={() => selectProfessional("any")}
-                className="w-full text-left rounded-lg border border-neutral-200 p-4 hover:border-brand-400 hover:bg-brand-50 transition-colors"
+                key={p.id}
+                onClick={() => selectProfessional(p.id)}
+                className="w-full text-left rounded-2xl border border-plum-100 p-4 hover:border-brand-400 hover:bg-brand-50 transition-colors flex items-center gap-3"
               >
-                <p className="font-medium text-neutral-900">Cualquiera disponible</p>
-                <p className="text-sm text-neutral-500">Te asignamos el primer profesional libre</p>
+                <Avatar name={p.name} src={p.photo} size={40} />
+                <p className="font-bold text-plum-900">{p.name}</p>
               </button>
-              {professionals.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => selectProfessional(p.id)}
-                  className="w-full text-left rounded-lg border border-neutral-200 p-4 hover:border-brand-400 hover:bg-brand-50 transition-colors flex items-center gap-3"
-                >
-                  <Avatar name={p.name} src={p.photo} size={40} />
-                  <p className="font-medium text-neutral-900">{p.name}</p>
-                </button>
-              ))}
-            </div>
+            ))}
           </div>
         )}
 
         {step === 3 && (
           <div>
-            <h2 className="font-semibold text-lg mb-1">Elegí una fecha</h2>
-            <p className="text-xs text-neutral-400 mb-4">Los días en gris el negocio no atiende.</p>
+            <p className="text-xs text-plum-400 mb-4">Los días en gris el negocio no atiende.</p>
             {days.length === 0 ? (
-              <p className="text-neutral-500 text-sm">Cargando fechas disponibles...</p>
+              <p className="text-plum-500 text-sm">Cargando fechas disponibles...</p>
             ) : (
-              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2 max-h-80 overflow-y-auto pr-1">
+              <div className="grid grid-cols-4 sm:grid-cols-7 gap-2 max-h-96 overflow-y-auto p-1.5">
                 {days.map((d) => {
                   const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
                     d.getDate()
                   ).padStart(2, "0")}`;
                   const closed = !openDays.includes(d.getDay());
+                  const selected = dateISO === iso;
                   return (
                     <button
                       key={iso}
@@ -313,16 +343,18 @@ export default function BookingWizard({
                       disabled={closed}
                       title={closed ? "El negocio no atiende este día" : undefined}
                       aria-label={closed ? `${formatWeekday(d)} ${formatDayNumber(d)}: cerrado` : undefined}
-                      className={`rounded-lg border p-3 text-center transition-colors ${
+                      aria-pressed={selected}
+                      className={`relative rounded-xl border p-2.5 text-center transition-colors ${
                         closed
-                          ? "border-neutral-100 bg-neutral-100 text-neutral-300 cursor-not-allowed"
-                          : dateISO === iso
-                          ? "border-brand-600 bg-brand-600 text-white"
-                          : "border-neutral-200 hover:border-brand-400 hover:bg-brand-50"
+                          ? "border-plum-50 bg-plum-50 text-plum-300 cursor-not-allowed"
+                          : selected
+                          ? "border-plum-900 bg-plum-900 text-white"
+                          : "border-plum-100 bg-white text-plum-900 hover:border-brand-400 hover:bg-brand-50"
                       }`}
                     >
-                      <div className="text-[10px] uppercase font-semibold opacity-70">{formatWeekday(d)}</div>
-                      <div className="text-lg font-bold">{formatDayNumber(d)}</div>
+                      <div className="text-[10px] uppercase font-bold opacity-70">{formatWeekday(d)}</div>
+                      <div className="text-lg font-extrabold">{formatDayNumber(d)}</div>
+                      {selected && <PencilRing />}
                     </button>
                   );
                 })}
@@ -333,28 +365,43 @@ export default function BookingWizard({
 
         {step === 4 && (
           <div>
-            <h2 className="font-semibold text-lg mb-4">Elegí un horario</h2>
             {loadingSlots ? (
-              <p className="text-neutral-500 text-sm">Buscando horarios disponibles...</p>
+              <p className="text-plum-500 text-sm">Buscando horarios disponibles...</p>
             ) : availableTimes.length === 0 ? (
-              <p className="text-neutral-500 text-sm">
-                No hay horarios disponibles ese día. Volvé al paso anterior y probá otra fecha.
-              </p>
+              <div className="text-center py-4">
+                <Sketch name="calendar" className="mx-auto mb-2 h-14 w-14 text-plum-300" />
+                <p className="text-plum-500 text-sm">No hay horarios disponibles ese día. Probá con otra fecha.</p>
+                <button onClick={() => goToStep(3)} className="btn-secondary mt-4">Elegir otro día</button>
+              </div>
             ) : (
-              <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-                {availableTimes.map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => selectTime(t)}
-                    className={`rounded-lg border p-2.5 text-sm font-medium transition-colors ${
-                      time === t
-                        ? "border-brand-600 bg-brand-600 text-white"
-                        : "border-neutral-200 hover:border-brand-400 hover:bg-brand-50"
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
+              <div className="space-y-5">
+                {[
+                  { label: "Mañana", list: morning },
+                  { label: "Tarde", list: afternoon },
+                ]
+                  .filter((g) => g.list.length > 0)
+                  .map((g) => (
+                    <div key={g.label}>
+                      <p className="mb-2 text-xs font-extrabold uppercase tracking-wider text-plum-400">{g.label}</p>
+                      <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 p-1">
+                        {g.list.map((t) => (
+                          <button
+                            key={t}
+                            onClick={() => selectTime(t)}
+                            aria-pressed={time === t}
+                            className={`relative rounded-xl border py-2.5 text-sm font-bold transition-colors ${
+                              time === t
+                                ? "border-brand-600 bg-brand-600 text-white"
+                                : "border-plum-100 bg-white text-plum-900 hover:border-brand-400 hover:bg-brand-50"
+                            }`}
+                          >
+                            {t}
+                            {time === t && <PencilRing />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
               </div>
             )}
           </div>
@@ -362,35 +409,22 @@ export default function BookingWizard({
 
         {step === 5 && selectedService && dateISO && time && (
           <div>
-            <h2 className="font-semibold text-lg mb-4">Confirmá tu turno</h2>
-            <dl className="space-y-2 text-sm mb-6">
-              <div className="flex justify-between">
-                <dt className="text-neutral-500">Negocio</dt>
-                <dd className="font-medium">{business.name}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-neutral-500">Servicio</dt>
-                <dd className="font-medium">{selectedService.name}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-neutral-500">Profesional</dt>
-                <dd className="font-medium">
-                  {professionalId === "any"
-                    ? "Cualquiera disponible"
-                    : professionals.find((p) => p.id === professionalId)?.name}
-                </dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-neutral-500">Fecha</dt>
-                <dd className="font-medium">{formatDateLong(new Date(`${dateISO}T00:00:00`))}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-neutral-500">Hora</dt>
-                <dd className="font-medium">{time}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-neutral-500">Precio</dt>
-                <dd className="font-semibold text-brand-600">{formatPrice(selectedService.price)}</dd>
+            <dl className="divide-y divide-plum-100 text-sm mb-6 rounded-2xl bg-plum-50 px-4">
+              {[
+                ["Negocio", business.name],
+                ["Servicio", selectedService.name],
+                ["Profesional", selectedProfessionalName ?? ""],
+                ["Fecha", formatDateLong(new Date(`${dateISO}T00:00:00`))],
+                ["Hora", time],
+              ].map(([k, v]) => (
+                <div key={k} className="flex justify-between gap-4 py-2.5">
+                  <dt className="text-plum-500">{k}</dt>
+                  <dd className="font-bold text-plum-900 text-right">{v}</dd>
+                </div>
+              ))}
+              <div className="flex justify-between gap-4 py-2.5">
+                <dt className="text-plum-500">Precio</dt>
+                <dd className="font-extrabold text-brand-600">{formatPrice(selectedService.price)}</dd>
               </div>
             </dl>
 
@@ -406,24 +440,29 @@ export default function BookingWizard({
             />
 
             {!user && (
-              <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-4">
+              <p className="text-sm text-amber-800 bg-amber-50 rounded-xl px-3 py-2 mb-4">
                 Necesitás iniciar sesión para confirmar el turno. Te vamos a devolver acá después.
               </p>
             )}
             {submitError && (
-              <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-4">{submitError}</p>
+              <p className="text-sm text-red-600 bg-red-50 rounded-xl px-3 py-2 mb-4">{submitError}</p>
             )}
 
-            <button
-              onClick={handleConfirm}
-              disabled={submitting}
-              className="btn-primary w-full"
-            >
+            <button onClick={handleConfirm} disabled={submitting} className="btn-primary w-full py-3.5">
               {submitting ? "Confirmando..." : user ? "Confirmar turno" : "Ingresar y confirmar"}
             </button>
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+/** Círculo a lápiz alrededor de la opción elegida. */
+function PencilRing() {
+  return (
+    <svg className="sketch pointer-events-none absolute -inset-1.5 h-[calc(100%+12px)] w-[calc(100%+12px)] overflow-visible text-brand-500" aria-hidden="true">
+      <use href="#sk-loop" />
+    </svg>
   );
 }

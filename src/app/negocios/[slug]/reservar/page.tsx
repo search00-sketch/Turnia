@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getBusinessBySlug } from "@/lib/db/businesses";
 import { getServicesByBusiness } from "@/lib/db/services";
@@ -36,9 +37,13 @@ export default async function ReservarPage({ params, searchParams }: Props) {
   }
 
   return (
-    <div className="section py-10">
-      <h1 className="text-2xl font-bold text-neutral-900 mb-1 text-center">Reservar en {business.name}</h1>
-      <p className="text-neutral-500 text-center mb-8">{business.address}</p>
+    <div className="section py-6 md:py-10">
+      <div className="max-w-2xl mx-auto mb-5">
+        <Link href={`/negocios/${business.slug}`} className="text-sm font-bold text-brand-600">
+          ← {business.name}
+        </Link>
+        <h1 className="mt-1 text-2xl font-extrabold text-plum-900">Reservá tu turno</h1>
+      </div>
 
       <BookingWizard
         business={{ id: business.id, slug: business.slug, name: business.name, address: business.address }}

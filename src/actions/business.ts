@@ -13,6 +13,7 @@ const profileSchema = z.object({
   category: z.enum(CATEGORIES.map((c) => c.slug) as [string, ...string[]]),
   description: z.string().optional(),
   address: z.string().optional(),
+  neighborhood: z.string().trim().max(40, "El barrio es demasiado largo").optional(),
   phone: z.string().optional(),
   whatsapp: z.string().optional(),
   published: z.boolean(),

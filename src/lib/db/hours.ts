@@ -50,3 +50,20 @@ export async function upsertHours(
   }
   await batch.commit();
 }
+
+/** Horarios de varios negocios a la vez (consultas 'in' de a 30), agrupados por negocio. */
+export async function getHoursForBusinesses(businessIds: string[]): Promise<Map<string, BusinessHourDoc[]>> {
+  const out = new Map<string, BusinessHourDoc[]>();
+  if (businessIds.length === 0) return out;
+  const db = getAdminDb();
+  const chunks: string[][] = [];
+  for (let i = 0; i < businessIds.length; i += 30) chunks.push(businessIds.slice(i, i + 30));
+  const snaps = await Promise.all(
+    chunks.map((chunk) => db.collection(COLLECTIONS.businessHours).where("businessId", "in", chunk).get())
+  );
+  for (const doc of snaps.flatMap((s) => s.docs)) {
+    const h = mapHourDoc(doc);
+    out.set(h.businessId, [...(out.get(h.businessId) ?? []), h]);
+  }
+  return out;
+}

@@ -7,32 +7,58 @@ html {
 }
 
 body {
-  @apply bg-neutral-50 text-neutral-900;
+  @apply bg-plum-50 text-plum-900;
+  /* Textura de papel muy suave: los fondos no se ven lisos. */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.16  0 0 0 0 0.09  0 0 0 0 0.19  0 0 0 .07 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
 }
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold transition-colors disabled:opacity-50 disabled:pointer-events-none;
   }
   .btn-primary {
-    @apply btn bg-brand-600 text-white hover:bg-brand-700;
+    @apply btn bg-brand-600 text-white hover:bg-brand-700 shadow-cta;
   }
   .btn-secondary {
-    @apply btn bg-white text-brand-700 border border-brand-200 hover:bg-brand-50;
+    @apply btn bg-white text-plum-900 border border-plum-200 hover:bg-plum-50;
   }
   .btn-ghost {
-    @apply btn bg-transparent text-neutral-700 hover:bg-neutral-100;
+    @apply btn bg-transparent text-plum-700 hover:bg-plum-100;
   }
   .card {
-    @apply bg-white rounded-xl2 shadow-card border border-neutral-100;
+    @apply bg-white rounded-xl2 shadow-card border border-plum-100;
   }
   .input {
-    @apply w-full rounded-lg border border-neutral-300 px-3.5 py-2.5 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500;
+    @apply w-full rounded-xl border border-plum-200 bg-white px-3.5 py-2.5 text-sm text-plum-900 placeholder:text-plum-300 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500;
   }
   .label {
-    @apply block text-sm font-medium text-neutral-700 mb-1.5;
+    @apply block text-sm font-semibold text-plum-700 mb-1.5;
   }
   .section {
     @apply mx-auto max-w-6xl px-4 sm:px-6 lg:px-8;
+  }
+  /* Encabezados ciruela con textura clara */
+  .plum-surface {
+    @apply bg-plum-900 text-white;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .06 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
+  }
+  .sand-surface {
+    @apply bg-sand-100;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.16  0 0 0 0 0.09  0 0 0 0 0.19  0 0 0 .09 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
+  }
+  /* Trazo a lápiz: deforma levemente el contorno (ver <SketchDefs />). */
+  .sketch {
+    filter: url(#pencil);
+  }
+}
+
+:focus-visible {
+  outline: 2px solid theme("colors.brand.600");
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
   }
 }

@@ -3,7 +3,13 @@
 import { useState, useTransition } from "react";
 import { cancelAppointmentAsClient } from "@/actions/bookings";
 
-export default function CancelAppointmentButton({ appointmentId }: { appointmentId: string }) {
+export default function CancelAppointmentButton({
+  appointmentId,
+  className = "text-sm font-semibold text-red-600 hover:text-red-700 disabled:opacity-50",
+}: {
+  appointmentId: string;
+  className?: string;
+}) {
   const [isPending, startTransition] = useTransition();
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +30,7 @@ export default function CancelAppointmentButton({ appointmentId }: { appointment
           });
         }}
         disabled={isPending}
-        className="text-sm font-semibold text-red-600 hover:text-red-700 disabled:opacity-50"
+        className={className}
       >
         {isPending ? "Cancelando..." : "Cancelar turno"}
       </button>

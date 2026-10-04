@@ -12,6 +12,7 @@ interface BusinessProfile {
   category: string;
   description: string | null;
   address: string | null;
+  neighborhood: string | null;
   phone: string | null;
   whatsapp: string | null;
   coverImage: string | null;
@@ -27,6 +28,7 @@ export default function BusinessProfileForm({ business }: { business: BusinessPr
     category: business.category,
     description: business.description ?? "",
     address: business.address ?? "",
+    neighborhood: business.neighborhood ?? "",
     phone: business.phone ?? "",
     whatsapp: business.whatsapp ?? "",
     published: business.published,
@@ -116,9 +118,20 @@ export default function BusinessProfileForm({ business }: { business: BusinessPr
           />
         </div>
 
-        <div>
-          <label className="label">Dirección</label>
-          <input className="input" value={form.address} onChange={(e) => update("address", e.target.value)} />
+        <div className="grid sm:grid-cols-[2fr_1fr] gap-3">
+          <div>
+            <label className="label">Dirección</label>
+            <input className="input" value={form.address} onChange={(e) => update("address", e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Barrio o localidad</label>
+            <input
+              className="input"
+              placeholder="Ej: Palermo"
+              value={form.neighborhood}
+              onChange={(e) => update("neighborhood", e.target.value)}
+            />
+          </div>
         </div>
 
         <div>
