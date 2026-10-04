@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import { getAllBusinessesWithOwners } from "@/lib/db/businesses";
+import { getBookableBusinessIds } from "@/lib/db/bookable";
 import { categoryLabel } from "@/lib/config";
 import AdminBusinessRow, { type AdminBusinessRowData } from "@/components/admin-business-row";
 
@@ -19,6 +20,7 @@ function paymentLabel(paidUntil: Date | null): string {
 
 export default async function AdminNegociosPage() {
   const businesses = await getAllBusinessesWithOwners();
+  const bookable = await getBookableBusinessIds(businesses.map((b) => b.id));
 
   const rows: AdminBusinessRowData[] = businesses.map((b) => ({
     id: b.id,
@@ -26,6 +28,7 @@ export default async function AdminNegociosPage() {
     category: categoryLabel(b.category),
     createdAt: format(b.createdAt, "dd/MM/yyyy"),
     published: b.published,
+    bookable: bookable.has(b.id),
     paidUntilISO: b.paidUntil ? isoDateInput(b.paidUntil) : null,
     paymentLabel: paymentLabel(b.paidUntil),
     ownerName: b.owner ? `${b.owner.name} ${b.owner.lastName ?? ""}`.trim() : "—",

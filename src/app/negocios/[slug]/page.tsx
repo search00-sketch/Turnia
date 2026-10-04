@@ -23,6 +23,9 @@ export default async function BusinessDetailPage({ params }: Props) {
     getProfessionalsByBusiness(business.id, { activeOnly: true }),
   ]);
 
+  // Sin servicios o sin profesionales no se puede reservar (y no aparece en el buscador).
+  const bookable = services.length > 0 && professionals.length > 0;
+
   const servicesByCategory = new Map<string, ServiceDoc[]>();
   for (const service of services) {
     const list = servicesByCategory.get(service.category) ?? [];
@@ -56,6 +59,11 @@ export default async function BusinessDetailPage({ params }: Props) {
 
           <div id="servicios" className="space-y-6">
             <h2 className="font-semibold text-neutral-900 text-lg">Servicios</h2>
+            {!bookable && (
+              <p className="text-sm text-amber-800 bg-amber-50 rounded-lg px-4 py-3">
+                Este negocio todavía no está tomando reservas online. Podés contactarlo por teléfono o WhatsApp.
+              </p>
+            )}
             {servicesByCategory.size === 0 && (
               <p className="text-neutral-500 text-sm">Este negocio todavía no cargó servicios.</p>
             )}
@@ -76,12 +84,14 @@ export default async function BusinessDetailPage({ params }: Props) {
                           {formatDuration(service.durationMin)} · {formatPrice(service.price)}
                         </p>
                       </div>
-                      <Link
-                        href={`/negocios/${business.slug}/reservar?servicio=${service.id}`}
-                        className="btn-primary shrink-0"
-                      >
-                        Reservar
-                      </Link>
+                      {bookable && (
+                        <Link
+                          href={`/negocios/${business.slug}/reservar?servicio=${service.id}`}
+                          className="btn-primary shrink-0"
+                        >
+                          Reservar
+                        </Link>
+                      )}
                     </li>
                   ))}
                 </ul>

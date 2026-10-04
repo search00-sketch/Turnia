@@ -9,6 +9,8 @@ export interface AdminBusinessRowData {
   category: string;
   createdAt: string; // ya formateada
   published: boolean;
+  /** Tiene al menos un servicio y un profesional activos (si no, no aparece en el marketplace). */
+  bookable: boolean;
   paidUntilISO: string | null; // "yyyy-MM-dd" o null
   paymentLabel: string;
   ownerName: string;
@@ -64,6 +66,11 @@ export default function AdminBusinessRow({ business }: { business: AdminBusiness
         >
           {business.published ? "Publicado" : "Despublicado"}
         </button>
+        {business.published && !business.bookable && (
+          <p className="text-xs text-amber-700 mt-1 max-w-[180px]">
+            No aparece en el buscador: le faltan servicios o profesionales activos.
+          </p>
+        )}
       </td>
       <td className="py-3">
         <p className="text-xs text-neutral-500 mb-1">{business.paymentLabel}</p>

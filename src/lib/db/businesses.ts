@@ -1,5 +1,6 @@
 import { getAdminDb } from "@/lib/firebase-admin";
 import { COLLECTIONS } from "@/lib/db/collections";
+import { getBookableBusinessIds } from "@/lib/db/bookable";
 import { hourRef } from "@/lib/db/hours";
 import { mapUserDoc, type UserDoc } from "@/lib/db/users";
 
@@ -62,6 +63,10 @@ export async function getBusinessByOwnerId(ownerId: string): Promise<BusinessDoc
   return snap.empty ? null : mapBusinessDoc(snap.docs[0]);
 }
 
+/**
+ * Negocios visibles en el marketplace: publicados y con al menos un servicio
+ * y un profesional activos (si no, el cliente no tendría nada para reservar).
+ */
 export async function getPublishedBusinesses(
   opts: { category?: string; take?: number } = {}
 ): Promise<BusinessDoc[]> {
@@ -72,7 +77,9 @@ export async function getPublishedBusinesses(
     query = query.where("category", "==", opts.category);
   }
   const snap = await query.get();
-  const businesses = snap.docs.map(mapBusinessDoc);
+  const published = snap.docs.map(mapBusinessDoc);
+  const bookable = await getBookableBusinessIds(published.map((b) => b.id));
+  const businesses = published.filter((b) => bookable.has(b.id));
   businesses.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   return opts.take ? businesses.slice(0, opts.take) : businesses;
 }

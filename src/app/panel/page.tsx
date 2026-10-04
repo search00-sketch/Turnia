@@ -82,7 +82,8 @@ export default async function PanelDashboardPage() {
       {services.length > 0 && professionals.length === 0 && (
         <div className="card p-6 bg-amber-50 border-amber-100">
           <p className="text-sm text-amber-800">
-            Todavía no cargaste profesionales, así que nadie puede reservarte un turno.{" "}
+            Todavía no cargaste profesionales, así que tu negocio no aparece en el buscador y nadie puede
+            reservarte un turno.{" "}
             <Link href="/panel/profesionales" className="font-semibold underline">
               Cargá tu primer profesional
             </Link>
@@ -94,7 +95,8 @@ export default async function PanelDashboardPage() {
       {services.length === 0 && (
         <div className="card p-6 bg-amber-50 border-amber-100">
           <p className="text-sm text-amber-800">
-            Todavía no cargaste servicios, así que tu negocio no puede recibir reservas.{" "}
+            Todavía no cargaste servicios, así que tu negocio no aparece en el buscador ni puede recibir
+            reservas. Necesitás al menos un servicio y un profesional.{" "}
             <Link href="/panel/servicios" className="font-semibold underline">
               Cargá tu primer servicio
             </Link>

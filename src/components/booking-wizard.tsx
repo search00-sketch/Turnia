@@ -31,6 +31,8 @@ interface BookingWizardProps {
   business: { id: string; slug: string; name: string; address: string | null };
   services: ServiceOption[];
   professionals: ProfessionalOption[];
+  /** Días de la semana en que atiende el negocio (0 = domingo). */
+  openDays: number[];
   initial: { servicio?: string; profesional?: string; fecha?: string; hora?: string };
   user: { id: string; role: string } | null;
 }
@@ -43,7 +45,14 @@ const STEPS = [
   { n: 5, label: "Finalizar" },
 ];
 
-export default function BookingWizard({ business, services, professionals, initial, user }: BookingWizardProps) {
+export default function BookingWizard({
+  business,
+  services,
+  professionals,
+  openDays,
+  initial,
+  user,
+}: BookingWizardProps) {
   const router = useRouter();
 
   const initialServiceValid = services.find((s) => s.id === initial.servicio) ? initial.servicio : undefined;
@@ -283,7 +292,8 @@ export default function BookingWizard({ business, services, professionals, initi
 
         {step === 3 && (
           <div>
-            <h2 className="font-semibold text-lg mb-4">Elegí una fecha</h2>
+            <h2 className="font-semibold text-lg mb-1">Elegí una fecha</h2>
+            <p className="text-xs text-neutral-400 mb-4">Los días en gris el negocio no atiende.</p>
             {days.length === 0 ? (
               <p className="text-neutral-500 text-sm">Cargando fechas disponibles...</p>
             ) : (
@@ -292,12 +302,18 @@ export default function BookingWizard({ business, services, professionals, initi
                   const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
                     d.getDate()
                   ).padStart(2, "0")}`;
+                  const closed = !openDays.includes(d.getDay());
                   return (
                     <button
                       key={iso}
                       onClick={() => selectDate(iso)}
+                      disabled={closed}
+                      title={closed ? "El negocio no atiende este día" : undefined}
+                      aria-label={closed ? `${formatWeekday(d)} ${formatDayNumber(d)}: cerrado` : undefined}
                       className={`rounded-lg border p-3 text-center transition-colors ${
-                        dateISO === iso
+                        closed
+                          ? "border-neutral-100 bg-neutral-100 text-neutral-300 cursor-not-allowed"
+                          : dateISO === iso
                           ? "border-brand-600 bg-brand-600 text-white"
                           : "border-neutral-200 hover:border-brand-400 hover:bg-brand-50"
                       }`}
