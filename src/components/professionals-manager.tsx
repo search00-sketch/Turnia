@@ -3,10 +3,14 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createProfessional, updateProfessional, setProfessionalActive } from "@/actions/professionals";
+import { setProfessionalPhoto } from "@/actions/images";
+import ImageUploader from "@/components/image-uploader";
+import Avatar from "@/components/avatar";
 
 interface ProfessionalItem {
   id: string;
   name: string;
+  photo: string | null;
   active: boolean;
 }
 
@@ -103,9 +107,20 @@ export default function ProfessionalsManager({ professionals }: { professionals:
               </form>
             ) : (
               <>
-                <p className="font-medium text-neutral-900">
-                  {p.name} {!p.active && <span className="text-xs text-neutral-400">(archivado)</span>}
-                </p>
+                <div className="min-w-0">
+                  <p className="font-medium text-neutral-900 mb-2">
+                    {p.name} {!p.active && <span className="text-xs text-neutral-400">(archivado)</span>}
+                  </p>
+                  <ImageUploader
+                    compact
+                    currentUrl={p.photo}
+                    width={320}
+                    height={320}
+                    maxBytes={40 * 1024}
+                    onSave={(dataUrl) => setProfessionalPhoto(p.id, dataUrl)}
+                    preview={(src) => <Avatar name={p.name} src={src} size={48} />}
+                  />
+                </div>
                 <div className="flex gap-3 shrink-0">
                   <button
                     className="text-sm font-semibold text-brand-600"

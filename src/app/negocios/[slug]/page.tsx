@@ -6,6 +6,7 @@ import { getHoursByBusiness } from "@/lib/db/hours";
 import { getProfessionalsByBusiness } from "@/lib/db/professionals";
 import { categoryLabel, DAYS_OF_WEEK } from "@/lib/config";
 import { formatDuration, formatPrice } from "@/lib/format";
+import Avatar from "@/components/avatar";
 
 export const dynamic = "force-dynamic";
 
@@ -39,8 +40,15 @@ export default async function BusinessDetailPage({ params }: Props) {
 
   return (
     <div>
-      <div className="h-48 sm:h-64 w-full bg-gradient-to-br from-brand-200 to-brand-400 flex items-end">
-        <div className="section pb-6">
+      <div className="relative h-48 sm:h-64 w-full bg-gradient-to-br from-brand-200 to-brand-400 flex items-end overflow-hidden">
+        {business.coverImage && (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={business.coverImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+          </>
+        )}
+        <div className="section pb-6 relative">
           <span className="inline-block text-xs font-semibold uppercase tracking-wide bg-white/90 text-brand-700 rounded-full px-3 py-1 mb-2">
             {categoryLabel(business.category)}
           </span>
@@ -144,9 +152,12 @@ export default async function BusinessDetailPage({ params }: Props) {
           {professionals.length > 0 && (
             <div className="card p-6">
               <h2 className="font-semibold text-neutral-900 mb-4">Profesionales</h2>
-              <ul className="text-sm text-neutral-600 space-y-1.5">
+              <ul className="text-sm text-neutral-600 space-y-2.5">
                 {professionals.map((p) => (
-                  <li key={p.id}>{p.name}</li>
+                  <li key={p.id} className="flex items-center gap-3">
+                    <Avatar name={p.name} src={p.photo} size={36} />
+                    <span>{p.name}</span>
+                  </li>
                 ))}
               </ul>
             </div>

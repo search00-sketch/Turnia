@@ -3,6 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateBusinessProfile } from "@/actions/business";
+import { setBusinessCover } from "@/actions/images";
+import ImageUploader from "@/components/image-uploader";
 import { CATEGORIES } from "@/lib/config";
 
 interface BusinessProfile {
@@ -27,7 +29,6 @@ export default function BusinessProfileForm({ business }: { business: BusinessPr
     address: business.address ?? "",
     phone: business.phone ?? "",
     whatsapp: business.whatsapp ?? "",
-    coverImage: business.coverImage ?? "",
     published: business.published,
   });
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +54,33 @@ export default function BusinessProfileForm({ business }: { business: BusinessPr
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
+    <div className="space-y-6 max-w-2xl">
+    <div className="card p-6 space-y-3">
+      <div>
+        <h2 className="font-semibold text-neutral-900">Foto de portada</h2>
+        <p className="text-sm text-neutral-500">
+          Se muestra en el buscador y arriba de tu ficha. Se achica automáticamente para que cargue rápido.
+        </p>
+      </div>
+      <ImageUploader
+        currentUrl={business.coverImage}
+        width={1200}
+        height={600}
+        maxBytes={150 * 1024}
+        onSave={setBusinessCover}
+        preview={(src) => (
+          <div className="aspect-[2/1] w-full rounded-lg overflow-hidden bg-gradient-to-br from-brand-100 to-brand-300 flex items-center justify-center">
+            {src ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={src} alt="Portada" className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-sm text-brand-700">Sin foto de portada</span>
+            )}
+          </div>
+        )}
+      />
+    </div>
+    <form onSubmit={handleSubmit} className="space-y-6">
       <div className="card p-6 space-y-4">
         <h2 className="font-semibold text-neutral-900">Datos del negocio</h2>
 
@@ -94,25 +121,14 @@ export default function BusinessProfileForm({ business }: { business: BusinessPr
           <input className="input" value={form.address} onChange={(e) => update("address", e.target.value)} />
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-3">
-          <div>
-            <label className="label">WhatsApp (con código de país)</label>
-            <input
-              className="input"
-              placeholder="5491122334455"
-              value={form.whatsapp}
-              onChange={(e) => update("whatsapp", e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="label">URL de imagen de portada</label>
-            <input
-              className="input"
-              placeholder="https://..."
-              value={form.coverImage}
-              onChange={(e) => update("coverImage", e.target.value)}
-            />
-          </div>
+        <div>
+          <label className="label">WhatsApp (con código de país)</label>
+          <input
+            className="input"
+            placeholder="5491122334455"
+            value={form.whatsapp}
+            onChange={(e) => update("whatsapp", e.target.value)}
+          />
         </div>
 
         <label className="flex items-center gap-2 text-sm text-neutral-700">
@@ -132,5 +148,6 @@ export default function BusinessProfileForm({ business }: { business: BusinessPr
         {isPending ? "Guardando..." : "Guardar cambios"}
       </button>
     </form>
+    </div>
   );
 }

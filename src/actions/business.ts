@@ -15,7 +15,6 @@ const profileSchema = z.object({
   address: z.string().optional(),
   phone: z.string().optional(),
   whatsapp: z.string().optional(),
-  coverImage: z.string().optional(),
   published: z.boolean(),
 });
 

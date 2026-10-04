@@ -102,7 +102,7 @@ export async function updateBusiness(
     address: string;
     phone: string;
     whatsapp: string;
-    coverImage: string;
+    coverImage: string | null;
     published: boolean;
     paidUntil: Date | null;
   }>

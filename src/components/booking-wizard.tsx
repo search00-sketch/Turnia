@@ -12,6 +12,7 @@ import {
   formatDayNumber,
 } from "@/lib/format";
 import { nextDaysFrom } from "@/lib/slots";
+import Avatar from "@/components/avatar";
 
 interface ServiceOption {
   id: string;
@@ -25,6 +26,7 @@ interface ServiceOption {
 interface ProfessionalOption {
   id: string;
   name: string;
+  photo: string | null;
 }
 
 interface BookingWizardProps {
@@ -281,8 +283,9 @@ export default function BookingWizard({
                 <button
                   key={p.id}
                   onClick={() => selectProfessional(p.id)}
-                  className="w-full text-left rounded-lg border border-neutral-200 p-4 hover:border-brand-400 hover:bg-brand-50 transition-colors"
+                  className="w-full text-left rounded-lg border border-neutral-200 p-4 hover:border-brand-400 hover:bg-brand-50 transition-colors flex items-center gap-3"
                 >
+                  <Avatar name={p.name} src={p.photo} size={40} />
                   <p className="font-medium text-neutral-900">{p.name}</p>
                 </button>
               ))}

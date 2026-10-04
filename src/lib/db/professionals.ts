@@ -50,7 +50,7 @@ export async function createProfessional(businessId: string, data: { name: strin
 
 export async function updateProfessional(
   id: string,
-  data: Partial<{ name: string; active: boolean }>
+  data: Partial<{ name: string; active: boolean; photo: string | null }>
 ): Promise<void> {
   await getAdminDb().collection(COLLECTIONS.professionals).doc(id).update(data);
 }

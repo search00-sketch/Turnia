@@ -28,6 +28,7 @@ export default function BusinessCard({ business }: { business: BusinessCardData 
           <img
             src={business.coverImage}
             alt={business.name}
+            loading="lazy"
             className="h-full w-full object-cover group-hover:scale-105 transition-transform"
           />
         ) : (

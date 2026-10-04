@@ -7,4 +7,5 @@ export const COLLECTIONS = {
   businessHours: "turnia_businessHours",
   appointments: "turnia_appointments",
   movements: "turnia_movements",
+  images: "turnia_images",
 } as const;

@@ -50,7 +50,7 @@ export default async function ReservarPage({ params, searchParams }: Props) {
           durationMin: s.durationMin,
           description: s.description,
         }))}
-        professionals={professionals.map((p) => ({ id: p.id, name: p.name }))}
+        professionals={professionals.map((p) => ({ id: p.id, name: p.name, photo: p.photo }))}
         openDays={openDays}
         initial={searchParams}
         user={user ? { id: user.id, role: user.role } : null}
