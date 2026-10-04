@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/session";
 import SignOutButton from "@/components/sign-out-button";
+import EmailToggle from "@/components/email-toggle";
 import { Sketch } from "@/components/sketch";
 import { IconCalendar, IconChevron, IconGrid } from "@/components/icons";
 
@@ -65,6 +66,10 @@ export default async function CuentaPage() {
             <IconChevron className="h-4 w-4 text-plum-300" />
           </Link>
         )}
+      </div>
+
+      <div className="card">
+        <EmailToggle optOut={user.emailOptOut} />
       </div>
 
       <SignOutButton className="btn-secondary w-full" />

@@ -2,7 +2,7 @@ import { getDueReminders, markReminderSent } from "./db/appointments";
 import { getBusinessById } from "./db/businesses";
 import { getServiceById } from "./db/services";
 import { getUserByUid } from "./db/users";
-import { sendMail, bookingReminderEmail } from "./mailer";
+import { sendUserMail, bookingReminderEmail } from "./mailer";
 import { formatDateLong, formatTime } from "./format";
 import { REMINDER_HOURS_BEFORE } from "./config";
 
@@ -40,8 +40,10 @@ export async function sendDueReminders() {
     if (!client || !business || !service) continue;
 
     try {
-      await sendMail({
-        to: client.email,
+      // Si el cliente se desuscribió no se manda, pero igual se marca como
+      // enviado para no volver a revisarlo en la próxima corrida.
+      const delivered = await sendUserMail({
+        user: client,
         subject: `Recordatorio de tu turno en ${business.name}`,
         html: bookingReminderEmail({
           clientName: client.name,
@@ -53,7 +55,7 @@ export async function sendDueReminders() {
         }),
       });
       await markReminderSent(appt.id);
-      sent++;
+      if (delivered) sent++;
     } catch (err) {
       console.error(`No se pudo enviar el recordatorio del turno ${appt.id}`, err);
     }

@@ -16,6 +16,8 @@ export interface UserDoc {
    * Las cuentas anteriores (sin el campo) y las de Google no lo requieren.
    */
   requiresEmailVerification: boolean;
+  /** Pidió no recibir más mails de Turnia (botón "desuscribirse" o desde Cuenta). */
+  emailOptOut: boolean;
   createdAt: Date;
 }
 
@@ -29,6 +31,7 @@ export function mapUserDoc(snap: FirebaseFirestore.DocumentSnapshot): UserDoc {
     phone: data.phone ?? null,
     role: data.role,
     requiresEmailVerification: data.requiresEmailVerification === true,
+    emailOptOut: data.emailOptOut === true,
     createdAt: data.createdAt.toDate(),
   };
 }
@@ -61,4 +64,8 @@ export async function createUser(
       requiresEmailVerification: data.requiresEmailVerification ?? false,
       createdAt: new Date(),
     });
+}
+
+export async function setEmailOptOut(uid: string, optOut: boolean): Promise<void> {
+  await getAdminDb().collection(COLLECTIONS.users).doc(uid).update({ emailOptOut: optOut, emailOptOutAt: new Date() });
 }

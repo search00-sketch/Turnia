@@ -16,7 +16,14 @@ import {
   SlotUnavailableError,
 } from "@/lib/db/appointments";
 import { generateAvailableSlots } from "@/lib/slots";
-import { sendMail, bookingConfirmationEmail, newBookingOwnerEmail } from "@/lib/mailer";
+import {
+  sendUserMail,
+  bookingConfirmationEmail,
+  newBookingOwnerEmail,
+  appointmentCancelledClientEmail,
+  appointmentCancelledOwnerEmail,
+} from "@/lib/mailer";
+import { getProfessionalById } from "@/lib/db/professionals";
 import { formatDateLong, formatTime } from "@/lib/format";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -175,8 +182,8 @@ export async function createAppointment(input: {
   }
 
   try {
-    await sendMail({
-      to: user.email,
+    await sendUserMail({
+      user,
       subject: `Turno confirmado en ${business.name}`,
       html: bookingConfirmationEmail({
         clientName: user.name,
@@ -189,8 +196,8 @@ export async function createAppointment(input: {
       }),
     });
 
-    await sendMail({
-      to: owner.email,
+    await sendUserMail({
+      user: owner,
       subject: `Nuevo turno de ${user.name}`,
       html: newBookingOwnerEmail({
         businessName: business.name,
@@ -228,11 +235,68 @@ export async function cancelAppointmentAsClient(appointmentId: string): Promise<
   }
 
   await updateAppointmentStatus(appointmentId, "CANCELADO");
+  await notifyCancellation(appointment, { byBusiness: false });
 
   revalidatePath("/mis-turnos");
   revalidatePath("/panel/agenda");
   revalidatePath("/panel/contabilidad");
   return { ok: true };
+}
+
+/**
+ * Mails de cancelación. Si canceló el cliente: aviso al negocio y
+ * confirmación al cliente. Si canceló el negocio: aviso al cliente.
+ * Un error al mandar el mail no deshace la cancelación.
+ */
+async function notifyCancellation(
+  appointment: { businessId: string; serviceId: string; professionalId: string; clientId: string; startsAt: Date },
+  { byBusiness }: { byBusiness: boolean }
+) {
+  try {
+    const [business, service, professional, client] = await Promise.all([
+      getBusinessById(appointment.businessId),
+      getServiceById(appointment.serviceId),
+      getProfessionalById(appointment.professionalId),
+      getUserByUid(appointment.clientId),
+    ]);
+    if (!business || !service || !client) return;
+    const dateLabel = formatDateLong(appointment.startsAt);
+    const timeLabel = formatTime(appointment.startsAt);
+
+    await sendUserMail({
+      user: client,
+      subject: byBusiness ? `${business.name} canceló tu turno` : `Cancelaste tu turno en ${business.name}`,
+      html: appointmentCancelledClientEmail({
+        clientName: client.name,
+        businessName: business.name,
+        businessSlug: business.slug,
+        serviceName: service.name,
+        dateLabel,
+        timeLabel,
+        byBusiness,
+      }),
+    });
+
+    if (!byBusiness) {
+      const owner = await getUserByUid(business.ownerId);
+      if (owner) {
+        await sendUserMail({
+          user: owner,
+          subject: `${client.name} canceló su turno del ${dateLabel}`,
+          html: appointmentCancelledOwnerEmail({
+            businessName: business.name,
+            clientName: `${client.name} ${client.lastName ?? ""}`.trim(),
+            serviceName: service.name,
+            professionalName: professional?.name ?? "—",
+            dateLabel,
+            timeLabel,
+          }),
+        });
+      }
+    }
+  } catch (err) {
+    console.error("No se pudo enviar el mail de cancelación", err);
+  }
 }
 
 export async function updateAppointmentStatusAsBusiness(
@@ -258,6 +322,9 @@ export async function updateAppointmentStatusAsBusiness(
     }
   } else {
     await updateAppointmentStatus(appointmentId, status);
+    if (status === "CANCELADO" && (appointment.status === "CONFIRMADO" || appointment.status === "PENDIENTE")) {
+      await notifyCancellation(appointment, { byBusiness: true });
+    }
   }
 
   revalidatePath("/panel/agenda");
