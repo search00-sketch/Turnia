@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase-client";
 import Link from "next/link";
@@ -17,6 +17,7 @@ import VerifyEmailNotice from "@/components/verify-email-notice";
 import { firebaseErrorMessage } from "@/lib/firebase-errors";
 import { registerBusiness } from "@/actions/auth";
 import { createSessionCookie } from "@/actions/session";
+import { goAfterAuth } from "@/lib/callback-url";
 import { CATEGORIES } from "@/lib/config";
 
 function isGoogleUser(user: User | null): user is User {
@@ -24,7 +25,6 @@ function isGoogleUser(user: User | null): user is User {
 }
 
 function RegistroNegocioForm() {
-  const router = useRouter();
   const params = useSearchParams();
   const [form, setForm] = useState({
     ownerName: "",
@@ -133,12 +133,11 @@ function RegistroNegocioForm() {
       setLoading(false);
 
       if (!sessionResult.ok) {
-        router.push("/login");
+        goAfterAuth("/login");
         return;
       }
 
-      router.push("/panel");
-      router.refresh();
+      goAfterAuth("/panel");
     } catch (err) {
       if (!registered && !googleUser) await rollbackAuthAccount(account.user, account.createdNow);
       const code = (err as { code?: string })?.code;

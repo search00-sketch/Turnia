@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { User } from "firebase/auth";
 import {
@@ -13,12 +13,13 @@ import {
 import { firebaseErrorMessage } from "@/lib/firebase-errors";
 import { registerClient, registerGoogleClient } from "@/actions/auth";
 import { createSessionCookie } from "@/actions/session";
+import { goAfterAuth, safeCallbackUrl } from "@/lib/callback-url";
 import EmailInput from "@/components/email-input";
 import GoogleButton, { OrDivider } from "@/components/google-button";
 import VerifyEmailNotice from "@/components/verify-email-notice";
 
-export default function RegistroPage() {
-  const router = useRouter();
+function RegistroForm() {
+  const callbackUrl = safeCallbackUrl(useSearchParams().get("callbackUrl"));
   const [form, setForm] = useState({
     name: "",
     lastName: "",
@@ -77,12 +78,11 @@ export default function RegistroPage() {
       setLoading(false);
 
       if (!sessionResult.ok) {
-        router.push("/login");
+        goAfterAuth("/login");
         return;
       }
 
-      router.push("/");
-      router.refresh();
+      goAfterAuth(callbackUrl || "/");
     } catch (err) {
       if (!registered) await rollbackAuthAccount(account.user, account.createdNow);
       const code = (err as { code?: string })?.code;
@@ -113,8 +113,7 @@ export default function RegistroPage() {
       setLoading(false);
       return;
     }
-    router.push("/");
-    router.refresh();
+    goAfterAuth(callbackUrl || "/");
   }
 
   if (pendingVerification) {
@@ -124,7 +123,7 @@ export default function RegistroPage() {
           <h1 className="text-2xl font-bold">¡Cuenta creada!</h1>
           <VerifyEmailNotice email={pendingVerification.email ?? form.email} user={pendingVerification} />
           {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
-          <Link href="/login" className="btn-primary w-full">
+          <Link href={callbackUrl ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/login"} className="btn-primary w-full">
             Ir a ingresar
           </Link>
         </div>
@@ -188,5 +187,13 @@ export default function RegistroPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RegistroPage() {
+  return (
+    <Suspense>
+      <RegistroForm />
+    </Suspense>
   );
 }

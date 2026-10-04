@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { sendPasswordResetEmail, signInWithEmailAndPassword, signOut, type User } from "firebase/auth";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getFirebaseAuth } from "@/lib/firebase-client";
 import { firebaseErrorMessage } from "@/lib/firebase-errors";
@@ -10,16 +10,15 @@ import { createSessionCookie, clearSessionCookie } from "@/actions/session";
 import { registerGoogleClient } from "@/actions/auth";
 import { signInWithGoogle } from "@/lib/register-account";
 import { normalizeEmail } from "@/lib/email-typos";
+import { goAfterAuth, safeCallbackUrl } from "@/lib/callback-url";
 import EmailInput from "@/components/email-input";
 import GoogleButton, { OrDivider } from "@/components/google-button";
 import VerifyEmailNotice from "@/components/verify-email-notice";
 
 function LoginForm() {
-  const router = useRouter();
   const params = useSearchParams();
-  // Sólo destinos dentro de la app ("/algo"), nunca otro sitio ("https://..." o "//...").
-  const rawCallback = params.get("callbackUrl");
-  const callbackUrl = rawCallback && rawCallback.startsWith("/") && !rawCallback.startsWith("//") ? rawCallback : null;
+  const callbackUrl = safeCallbackUrl(params.get("callbackUrl"));
+  const withCallback = (path: string) => (callbackUrl ? `${path}?callbackUrl=${encodeURIComponent(callbackUrl)}` : path);
   const justVerified = params.get("verificado") === "1";
 
   const [email, setEmail] = useState("");
@@ -66,8 +65,7 @@ function LoginForm() {
 
     // Sin destino pedido, cada uno va a su lugar: el negocio a su panel, el admin al suyo.
     const home = result.role === "NEGOCIO" ? "/panel" : result.role === "ADMIN" ? "/admin" : "/";
-    router.push(callbackUrl || home);
-    router.refresh();
+    goAfterAuth(callbackUrl || home);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -232,13 +230,13 @@ function LoginForm() {
         <div className="mt-6 text-sm text-neutral-500 space-y-1">
           <p>
             ¿No tenés cuenta?{" "}
-            <Link href="/registro" className="text-brand-600 font-medium">
+            <Link href={withCallback("/registro")} className="text-brand-600 font-medium">
               Registrate
             </Link>
           </p>
           <p>
             ¿Sos dueño de un negocio?{" "}
-            <Link href="/registro-negocio" className="text-brand-600 font-medium">
+            <Link href={withCallback("/registro-negocio")} className="text-brand-600 font-medium">
               Publicá tu negocio
             </Link>
           </p>

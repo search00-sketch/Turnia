@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Logo from "@/components/logo";
 import SignOutButton from "@/components/sign-out-button";
+import LoginLink from "@/components/login-link";
 
 interface NavUser {
   name: string;
@@ -47,9 +48,7 @@ export default function Navbar({ user }: { user: NavUser | null }) {
         <div className="hidden md:flex items-center gap-3">
           {!user ? (
             <>
-              <Link href="/login" className="btn-ghost">
-                Ingresar
-              </Link>
+              <LoginLink className="btn-ghost" />
               <Link href="/registro" className="btn-primary">
                 Registrarse
               </Link>
@@ -63,9 +62,7 @@ export default function Navbar({ user }: { user: NavUser | null }) {
         </div>
 
         {!user && (
-          <Link href="/login" className="md:hidden text-sm font-bold text-plum-900">
-            Ingresar
-          </Link>
+          <LoginLink className="md:hidden text-sm font-bold text-plum-900" />
         )}
       </div>
     </header>

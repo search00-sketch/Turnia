@@ -28,10 +28,11 @@ export default function TabBar({ role }: { role: Role }) {
       : { href: "/mis-turnos", label: "Mis turnos", Icon: IconCalendar };
 
   const tabs = [
-    { href: "/", label: "Inicio", Icon: IconHome, exact: true },
-    { href: "/negocios", label: "Buscar", Icon: IconSearch },
-    { ...third, exact: false },
-    { href: "/cuenta", label: "Cuenta", Icon: IconUser, exact: false },
+    { href: "/", label: "Inicio", Icon: IconHome, exact: true, prefetch: true },
+    { href: "/negocios", label: "Buscar", Icon: IconSearch, exact: false, prefetch: true },
+    // Dependen de la sesión: sin precarga, para no guardar una versión de "sin sesión".
+    { ...third, exact: false, prefetch: false },
+    { href: "/cuenta", label: "Cuenta", Icon: IconUser, exact: false, prefetch: false },
   ];
 
   return (
@@ -44,12 +45,13 @@ export default function TabBar({ role }: { role: Role }) {
         aria-label="Navegación principal"
       >
         <ul className="grid grid-cols-4">
-          {tabs.map(({ href, label, Icon, exact }) => {
+          {tabs.map(({ href, label, Icon, exact, prefetch }) => {
             const active = exact ? pathname === href : pathname.startsWith(href);
             return (
               <li key={href}>
                 <Link
                   href={href}
+                  prefetch={prefetch ? undefined : false}
                   aria-current={active ? "page" : undefined}
                   className={`flex flex-col items-center gap-1 pt-1.5 pb-2.5 text-[11px] font-bold ${
                     active ? "text-plum-900" : "text-plum-400"
