@@ -54,6 +54,7 @@ export default async function AdminNegociosPage() {
                 <th className="py-2 pr-4 font-medium">Alta</th>
                 <th className="py-2 pr-4 font-medium">Publicación</th>
                 <th className="py-2 font-medium">Pago</th>
+                <th className="py-2 pl-4 font-medium" aria-label="Acciones" />
               </tr>
             </thead>
             <tbody>

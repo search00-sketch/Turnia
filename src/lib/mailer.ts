@@ -221,23 +221,29 @@ export function appointmentCancelledClientEmail(params: {
   dateLabel: string;
   timeLabel: string;
   byBusiness: boolean;
+  /** El negocio se dio de baja de la plataforma: el botón lleva a buscar otro lugar. */
+  businessClosed?: boolean;
 }) {
-  const { clientName, businessName, businessSlug, serviceName, dateLabel, timeLabel, byBusiness } = params;
+  const { clientName, businessName, businessSlug, serviceName, dateLabel, timeLabel, byBusiness, businessClosed } = params;
+  const intro = businessClosed
+    ? `<strong>${esc(businessName)}</strong> ya no toma turnos por ${APP_NAME}, así que tu turno quedó cancelado.`
+    : byBusiness
+      ? `<strong>${esc(businessName)}</strong> canceló tu turno.`
+      : `confirmamos que cancelaste tu turno en <strong>${esc(businessName)}</strong>.`;
+  const cta = businessClosed
+    ? { href: `${appUrl()}/negocios`, label: "Buscar otro lugar" }
+    : { href: `${appUrl()}/negocios/${businessSlug}/reservar`, label: "Reservar otro turno" };
   return baseTemplate(
     "Turno cancelado",
     `
-      <p>Hola ${esc(clientName)}, ${
-        byBusiness
-          ? `<strong>${esc(businessName)}</strong> canceló tu turno.`
-          : `confirmamos que cancelaste tu turno en <strong>${esc(businessName)}</strong>.`
-      }</p>
+      <p>Hola ${esc(clientName)}, ${intro}</p>
       <table style="width:100%; border-collapse: collapse; margin: 16px 0;">
         ${row("Servicio", serviceName)}
         ${row("Fecha", dateLabel)}
         ${row("Hora", timeLabel)}
       </table>
       <p style="margin:20px 0 0;">
-        <a href="${appUrl()}/negocios/${businessSlug}/reservar" style="display:inline-block; background:#c8255a; color:#ffffff; padding:11px 20px; border-radius:999px; font-weight:800; text-decoration:none;">Reservar otro turno</a>
+        <a href="${cta.href}" style="display:inline-block; background:#c8255a; color:#ffffff; padding:11px 20px; border-radius:999px; font-weight:800; text-decoration:none;">${cta.label}</a>
       </p>
     `
   );

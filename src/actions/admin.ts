@@ -5,6 +5,11 @@ import { revalidatePath } from "next/cache";
 import { requireAdminUser } from "@/lib/session";
 import { updateBusiness } from "@/lib/db/businesses";
 import { applyTimezoneFix } from "@/lib/db/timezoneFix";
+import { deleteBusinessCascade } from "@/lib/db/deleteBusiness";
+import { getBusinessById } from "@/lib/db/businesses";
+import { getUserByUid } from "@/lib/db/users";
+import { sendUserMail, appointmentCancelledClientEmail } from "@/lib/mailer";
+import { formatDateLong, formatTime } from "@/lib/format";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -59,4 +64,53 @@ export async function adminApplyTimezoneFix(
   revalidatePath("/panel", "layout");
   revalidatePath("/mis-turnos");
   return { ok: true, ...result };
+}
+
+/**
+ * Borra un negocio con todos sus datos (ver deleteBusinessCascade). Para
+ * evitar accidentes hay que escribir el nombre del negocio. A los clientes
+ * con turnos futuros se les avisa por mail que su turno se canceló.
+ */
+export async function adminDeleteBusiness(businessId: string, confirmName: string): Promise<ActionResult> {
+  const admin = await requireAdminUser();
+  if (!admin) return { ok: false, error: "AUTH_REQUIRED" };
+
+  const business = await getBusinessById(businessId);
+  if (!business) return { ok: false, error: "Ese negocio ya no existe." };
+  const normalize = (s: string) => s.trim().replace(/\s+/g, " ").toLowerCase();
+  if (normalize(confirmName) !== normalize(business.name)) {
+    return { ok: false, error: "El nombre no coincide. Escribilo igual que figura en la lista." };
+  }
+
+  const result = await deleteBusinessCascade(businessId);
+  if (!result) return { ok: false, error: "Ese negocio ya no existe." };
+
+  for (const appointment of result.cancelledUpcoming) {
+    try {
+      const client = await getUserByUid(appointment.clientId);
+      if (!client) continue;
+      await sendUserMail({
+        user: client,
+        subject: `Tu turno en ${business.name} fue cancelado`,
+        html: appointmentCancelledClientEmail({
+          clientName: client.name,
+          businessName: business.name,
+          businessSlug: business.slug,
+          serviceName: result.serviceNames[appointment.serviceId] || "—",
+          dateLabel: formatDateLong(appointment.startsAt),
+          timeLabel: formatTime(appointment.startsAt),
+          byBusiness: true,
+          businessClosed: true,
+        }),
+      });
+    } catch (err) {
+      console.error("No se pudo avisar la cancelación por baja del negocio", err);
+    }
+  }
+
+  revalidatePath("/admin", "layout");
+  revalidatePath("/negocios");
+  revalidatePath("/");
+  revalidatePath("/mis-turnos");
+  return { ok: true };
 }

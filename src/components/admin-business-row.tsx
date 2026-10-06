@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { adminSetBusinessPublished, adminSetBusinessPaidUntil } from "@/actions/admin";
+import { adminSetBusinessPublished, adminSetBusinessPaidUntil, adminDeleteBusiness } from "@/actions/admin";
 
 export interface AdminBusinessRowData {
   id: string;
@@ -22,6 +22,9 @@ export default function AdminBusinessRow({ business }: { business: AdminBusiness
   const [isPending, startTransition] = useTransition();
   const [paidUntil, setPaidUntil] = useState(business.paidUntilISO ?? "");
   const [saved, setSaved] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmName, setConfirmName] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   function togglePublished() {
     const goingToUnpublish = business.published;
@@ -44,7 +47,16 @@ export default function AdminBusinessRow({ business }: { business: AdminBusiness
     });
   }
 
+  function deleteBusiness() {
+    setDeleteError(null);
+    startTransition(async () => {
+      const res = await adminDeleteBusiness(business.id, confirmName);
+      if (!res.ok) setDeleteError(res.error);
+    });
+  }
+
   return (
+    <>
     <tr className="border-b border-neutral-50 last:border-0 align-top">
       <td className="py-3 pr-4">
         <p className="font-medium text-neutral-900">{business.name}</p>
@@ -91,6 +103,51 @@ export default function AdminBusinessRow({ business }: { business: AdminBusiness
           {saved && <span className="text-xs text-green-700 shrink-0">✓</span>}
         </div>
       </td>
+      <td className="py-3 pl-4 text-right">
+        <button
+          onClick={() => {
+            setDeleting((v) => !v);
+            setConfirmName("");
+            setDeleteError(null);
+          }}
+          disabled={isPending}
+          className="text-xs font-semibold text-neutral-400 hover:text-red-600 disabled:opacity-50 whitespace-nowrap"
+        >
+          {deleting ? "Cancelar" : "Borrar"}
+        </button>
+      </td>
     </tr>
+    {deleting && (
+      <tr className="border-b border-neutral-50">
+        <td colSpan={6} className="pb-4">
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 space-y-3">
+            <p className="text-sm text-red-800">
+              Vas a borrar <strong>{business.name}</strong> con todos sus servicios, profesionales, horarios,
+              turnos, contabilidad y fotos. <strong>No se puede deshacer.</strong> A los clientes con turnos
+              próximos les llega un mail avisando que se cancelaron. La cuenta de {business.ownerName} no se
+              borra: queda como cliente.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+              <input
+                className="input text-sm sm:max-w-xs"
+                placeholder={`Escribí "${business.name}" para confirmar`}
+                value={confirmName}
+                onChange={(e) => setConfirmName(e.target.value)}
+                aria-label="Nombre del negocio para confirmar"
+              />
+              <button
+                onClick={deleteBusiness}
+                disabled={isPending || confirmName.trim() === ""}
+                className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {isPending ? "Borrando..." : "Borrar definitivamente"}
+              </button>
+            </div>
+            {deleteError && <p className="text-sm text-red-700">{deleteError}</p>}
+          </div>
+        </td>
+      </tr>
+    )}
+    </>
   );
 }
