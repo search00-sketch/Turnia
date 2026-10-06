@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getBusinessBySlug } from "@/lib/db/businesses";
+import { businessMetadata, getBusinessBySlugCached } from "@/lib/business-metadata";
 import { getServicesByBusiness } from "@/lib/db/services";
 import { getProfessionalsByBusiness } from "@/lib/db/professionals";
 import { getHoursByBusiness } from "@/lib/db/hours";
@@ -14,8 +14,12 @@ interface Props {
   searchParams: { servicio?: string; profesional?: string; fecha?: string; hora?: string };
 }
 
+export function generateMetadata({ params }: { params: { slug: string } }) {
+  return businessMetadata(params.slug, { booking: true });
+}
+
 export default async function ReservarPage({ params, searchParams }: Props) {
-  const business = await getBusinessBySlug(params.slug);
+  const business = await getBusinessBySlugCached(params.slug);
   if (!business || !business.published) notFound();
 
   const [services, professionals, user, hours] = await Promise.all([

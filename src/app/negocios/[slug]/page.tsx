@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getBusinessBySlug } from "@/lib/db/businesses";
+import { businessMetadata, getBusinessBySlugCached } from "@/lib/business-metadata";
 import { getServicesByBusiness, type ServiceDoc } from "@/lib/db/services";
 import { getHoursByBusiness } from "@/lib/db/hours";
 import { getProfessionalsByBusiness } from "@/lib/db/professionals";
@@ -17,8 +17,12 @@ interface Props {
   params: { slug: string };
 }
 
+export function generateMetadata({ params }: { params: { slug: string } }) {
+  return businessMetadata(params.slug, { booking: false });
+}
+
 export default async function BusinessDetailPage({ params }: Props) {
-  const business = await getBusinessBySlug(params.slug);
+  const business = await getBusinessBySlugCached(params.slug);
   if (!business || !business.published) notFound();
 
   const [services, hours, professionals] = await Promise.all([

@@ -11,6 +11,7 @@ const LINKS = [
   { href: "/panel/profesionales", label: "Profesionales" },
   { href: "/panel/horarios", label: "Horarios" },
   { href: "/panel/contabilidad", label: "Contabilidad" },
+  { href: "/panel/publicaciones", label: "Publicaciones" },
   { href: "/panel/negocio", label: "Mi negocio" },
 ];
 
