@@ -7,7 +7,7 @@ import { IconCalendar, IconChevron, IconGrid } from "@/components/icons";
 
 export const dynamic = "force-dynamic";
 
-const ROLE_LABEL = { CLIENTE: "Cliente", NEGOCIO: "Negocio", ADMIN: "Administrador" } as const;
+const ROLE_LABEL = { CLIENTE: "Cliente", NEGOCIO: "Negocio y cliente", ADMIN: "Administrador" } as const;
 
 export default async function CuentaPage() {
   const user = await getCurrentUser();
@@ -35,7 +35,10 @@ export default async function CuentaPage() {
 
   const links =
     user.role === "NEGOCIO"
-      ? [{ href: "/panel", label: "Panel del negocio", Icon: IconGrid }]
+      ? [
+          { href: "/panel", label: "Panel de mi negocio", Icon: IconGrid },
+          { href: "/mis-turnos", label: "Mis turnos (como cliente)", Icon: IconCalendar },
+        ]
       : user.role === "ADMIN"
       ? [{ href: "/admin", label: "Panel de administración", Icon: IconGrid }]
       : [{ href: "/mis-turnos", label: "Mis turnos", Icon: IconCalendar }];
@@ -60,9 +63,12 @@ export default async function CuentaPage() {
           </Link>
         ))}
         {user.role === "CLIENTE" && (
-          <Link href="/publica-tu-negocio" className="flex items-center gap-3 px-5 py-4 font-semibold text-plum-900">
+          <Link href="/registro-negocio" className="flex items-center gap-3 px-5 py-4 font-semibold text-plum-900">
             <Sketch name="scissors" className="h-5 w-5 text-brand-600" />
-            <span className="flex-1">¿Tenés un negocio? Publicalo</span>
+            <span className="flex-1">
+              <span className="block">Sumá tu negocio a esta cuenta</span>
+              <span className="block text-xs font-normal text-plum-500">Seguís pudiendo reservar como cliente</span>
+            </span>
             <IconChevron className="h-4 w-4 text-plum-300" />
           </Link>
         )}

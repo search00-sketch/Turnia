@@ -179,8 +179,8 @@ export default function BookingWizard({
       router.push(`/login?callbackUrl=${encodeURIComponent(currentUrl())}`);
       return;
     }
-    if (user.role !== "CLIENTE") {
-      setSubmitError("Iniciá sesión con una cuenta de cliente para reservar.");
+    if (user.role === "ADMIN") {
+      setSubmitError("Las cuentas de administrador no pueden reservar turnos.");
       return;
     }
 

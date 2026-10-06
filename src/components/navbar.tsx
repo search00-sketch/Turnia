@@ -28,7 +28,7 @@ export default function Navbar({ user }: { user: NavUser | null }) {
               Publicá tu negocio
             </Link>
           )}
-          {user?.role === "CLIENTE" && (
+          {(user?.role === "CLIENTE" || user?.role === "NEGOCIO") && (
             <Link href="/mis-turnos" className="hover:text-brand-600">
               Mis turnos
             </Link>

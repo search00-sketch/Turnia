@@ -3,7 +3,8 @@
 import { z } from "zod";
 import { getAdminAuth } from "@/lib/firebase-admin";
 import { createUser, getUserByUid } from "@/lib/db/users";
-import { isSlugTaken, createBusinessOwnerBatch, SlugTakenError } from "@/lib/db/businesses";
+import { isSlugTaken, createBusinessOwnerBatch, SlugTakenError, AlreadyHasBusinessError } from "@/lib/db/businesses";
+import { getCurrentUser } from "@/lib/session";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 /** needsVerification: la cuenta es de email y contraseña sin confirmar; hay que mandar el mail. */
@@ -62,7 +63,8 @@ export async function registerClient(input: unknown): Promise<RegisterResult> {
 
   const existing = await getUserByUid(decoded.uid);
   if (existing) {
-    return existing.role === "CLIENTE"
+    // Clientes y dueños de negocio pueden reservar con la misma cuenta: ya es suya, entra.
+    return existing.role === "CLIENTE" || existing.role === "NEGOCIO"
       ? { ok: true, needsVerification: existing.requiresEmailVerification && decoded.email_verified !== true }
       : { ok: false, error: emailInUseByOtherRole(existing.role) };
   }
@@ -91,7 +93,9 @@ export async function registerGoogleClient(idToken: string): Promise<ActionResul
 
   const existing = await getUserByUid(decoded.uid);
   if (existing) {
-    return existing.role === "CLIENTE" ? { ok: true } : { ok: false, error: emailInUseByOtherRole(existing.role) };
+    return existing.role === "CLIENTE" || existing.role === "NEGOCIO"
+      ? { ok: true }
+      : { ok: false, error: emailInUseByOtherRole(existing.role) };
   }
 
   const [name, ...rest] = (decoded.name ?? decoded.email.split("@")[0]).trim().split(/\s+/);
@@ -152,19 +156,55 @@ export async function registerBusiness(input: unknown): Promise<RegisterResult> 
     if (existingUser.role === "NEGOCIO") {
       return { ok: false, error: "Ese email ya tiene un negocio registrado. Ingresá desde \"Iniciar sesión\"." };
     }
+    if (existingUser.role === "CLIENTE") {
+      // Ya demostró que es su cuenta (ingresó con su contraseña o con Google):
+      // se le suma el negocio a la misma cuenta en vez de pedirle otro email.
+      const created = await createBusinessWithUniqueSlug({ ownerId: decoded.uid, business: data });
+      if (!created.ok) return created;
+      return { ok: true, needsVerification: existingUser.requiresEmailVerification && decoded.email_verified !== true };
+    }
     return { ok: false, error: emailInUseByOtherRole(existingUser.role) };
   }
 
   const needsVerification = needsEmailVerification(decoded);
-  const baseSlug = slugify(data.businessName);
+  const created = await createBusinessWithUniqueSlug({
+    ownerId: decoded.uid,
+    ownerData: {
+      name: data.ownerName,
+      lastName: data.ownerLastName,
+      email: decoded.email.toLowerCase(),
+      phone: data.phone,
+      requiresEmailVerification: needsVerification,
+    },
+    business: data,
+  });
+  return created.ok ? { ok: true, needsVerification } : created;
+}
+
+type BusinessFields = {
+  businessName: string;
+  category: string;
+  description?: string;
+  address?: string;
+  phone?: string;
+  whatsapp?: string;
+};
+
+/**
+ * Crea el negocio buscando un slug libre. isSlugTaken() es sólo una
+ * pre-chequeada rápida; createBusinessOwnerBatch garantiza la unicidad de
+ * forma atómica, y si dos registros concurrentes eligen el mismo slug, uno
+ * recibe SlugTakenError y reintenta con el siguiente sufijo.
+ */
+async function createBusinessWithUniqueSlug(input: {
+  ownerId: string;
+  ownerData?: Parameters<typeof createBusinessOwnerBatch>[0]["ownerData"];
+  business: BusinessFields;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const baseSlug = slugify(input.business.businessName);
   let slug = baseSlug;
   let i = 1;
 
-  // isSlugTaken() es sólo una pre-chequeada rápida para el caso común (evita
-  // intentos de transacción innecesarios); createBusinessOwnerBatch es quien
-  // realmente garantiza la unicidad de forma atómica. Si dos registros
-  // concurrentes eligen el mismo slug, uno de los dos recibe SlugTakenError
-  // acá y reintenta con el siguiente sufijo.
   for (let attempt = 0; attempt < 10; attempt++) {
     while (await isSlugTaken(slug)) {
       slug = `${baseSlug}-${i++}`;
@@ -172,34 +212,58 @@ export async function registerBusiness(input: unknown): Promise<RegisterResult> 
 
     try {
       await createBusinessOwnerBatch({
-        ownerId: decoded.uid,
-        ownerData: {
-          name: data.ownerName,
-          lastName: data.ownerLastName,
-          email: decoded.email.toLowerCase(),
-          phone: data.phone,
-          requiresEmailVerification: needsVerification,
-        },
+        ownerId: input.ownerId,
+        ownerData: input.ownerData,
         businessData: {
           slug,
-          name: data.businessName,
-          category: data.category,
-          description: data.description,
-          address: data.address,
-          phone: data.phone,
-          whatsapp: data.whatsapp,
+          name: input.business.businessName,
+          category: input.business.category,
+          description: input.business.description,
+          address: input.business.address,
+          phone: input.business.phone,
+          whatsapp: input.business.whatsapp,
         },
         hours: STANDARD_HOURS,
       });
-      return { ok: true, needsVerification };
+      return { ok: true };
     } catch (err) {
       if (err instanceof SlugTakenError) {
         slug = `${baseSlug}-${i++}`;
         continue;
+      }
+      if (err instanceof AlreadyHasBusinessError) {
+        return { ok: false, error: "Esta cuenta ya tiene un negocio. Entrá a tu panel para administrarlo." };
       }
       throw err;
     }
   }
 
   return { ok: false, error: "No pudimos generar un nombre único para tu negocio. Probá de nuevo." };
+}
+
+const addBusinessSchema = z.object({
+  businessName: z.string().min(2, "Ingresá el nombre del negocio"),
+  category: z.string().min(1, "Elegí una categoría"),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  whatsapp: z.string().optional(),
+  description: z.string().optional(),
+});
+
+/**
+ * Un cliente con sesión iniciada suma su negocio a la misma cuenta: pasa a
+ * tener panel de negocio y sigue pudiendo reservar y ver sus turnos.
+ */
+export async function addBusinessToMyAccount(input: unknown): Promise<ActionResult> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "AUTH_REQUIRED" };
+  if (user.role === "ADMIN") {
+    return { ok: false, error: "Las cuentas de administrador no pueden tener un negocio. Usá otra cuenta." };
+  }
+  if (user.business) return { ok: false, error: "Tu cuenta ya tiene un negocio. Entrá a tu panel para administrarlo." };
+
+  const parsed = addBusinessSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
+
+  return createBusinessWithUniqueSlug({ ownerId: user.id, business: parsed.data });
 }

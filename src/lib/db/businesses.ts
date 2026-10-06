@@ -128,9 +128,18 @@ export class SlugTakenError extends Error {}
  * isSlugTaken por sí solo no es atómico). Si el slug ya fue tomado justo antes
  * de este commit, tira SlugTakenError y no crea nada (falla junto todo).
  */
+export class AlreadyHasBusinessError extends Error {}
+
+/**
+ * Crea el negocio (con su slug único y horarios) y deja al usuario como dueño.
+ * - Cuenta nueva: `ownerData` crea el perfil del usuario.
+ * - Cuenta existente (un cliente que suma su negocio): sin `ownerData`; sólo
+ *   se le cambia el rol a NEGOCIO y conserva todo lo demás (sus turnos como
+ *   cliente, preferencias de mails, etc.).
+ */
 export async function createBusinessOwnerBatch(input: {
   ownerId: string;
-  ownerData: { name: string; lastName?: string; email: string; phone?: string; requiresEmailVerification?: boolean };
+  ownerData?: { name: string; lastName?: string; email: string; phone?: string; requiresEmailVerification?: boolean };
   businessData: {
     slug: string;
     name: string;
@@ -148,17 +157,31 @@ export async function createBusinessOwnerBatch(input: {
 
   try {
     await db.runTransaction(async (tx) => {
+      const userRef = db.collection(COLLECTIONS.users).doc(input.ownerId);
+      if (!input.ownerData) {
+        // Lecturas antes de escribir: el usuario existe y todavía no tiene negocio.
+        const [userSnap, owned] = await Promise.all([
+          tx.get(userRef),
+          tx.get(db.collection(COLLECTIONS.businesses).where("ownerId", "==", input.ownerId).limit(1)),
+        ]);
+        if (!userSnap.exists || !owned.empty) throw new AlreadyHasBusinessError("Esta cuenta ya tiene un negocio.");
+      }
+
       tx.create(slugRef, { businessId: businessRef.id });
 
-      tx.set(db.collection(COLLECTIONS.users).doc(input.ownerId), {
-        name: input.ownerData.name,
-        lastName: input.ownerData.lastName ?? null,
-        email: input.ownerData.email,
-        phone: input.ownerData.phone ?? null,
-        role: "NEGOCIO",
-        requiresEmailVerification: input.ownerData.requiresEmailVerification ?? false,
-        createdAt: new Date(),
-      });
+      if (input.ownerData) {
+        tx.set(userRef, {
+          name: input.ownerData.name,
+          lastName: input.ownerData.lastName ?? null,
+          email: input.ownerData.email,
+          phone: input.ownerData.phone ?? null,
+          role: "NEGOCIO",
+          requiresEmailVerification: input.ownerData.requiresEmailVerification ?? false,
+          createdAt: new Date(),
+        });
+      } else {
+        tx.update(userRef, { role: "NEGOCIO", becameBusinessAt: new Date() });
+      }
 
       tx.set(businessRef, {
         slug: input.businessData.slug,

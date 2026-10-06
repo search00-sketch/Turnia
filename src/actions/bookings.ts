@@ -102,8 +102,9 @@ export async function createAppointment(input: {
   if (!user) {
     return { ok: false, error: "AUTH_REQUIRED" };
   }
-  if (user.role !== "CLIENTE") {
-    return { ok: false, error: "Ingresá con una cuenta de cliente para reservar." };
+  // Clientes y dueños de negocio (que también pueden reservar en otros lugares).
+  if (user.role === "ADMIN") {
+    return { ok: false, error: "Las cuentas de administrador no pueden reservar turnos." };
   }
 
   const [business, service, businessHours, allProfessionals] = await Promise.all([

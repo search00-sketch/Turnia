@@ -29,10 +29,13 @@ export async function requireBusinessUser() {
   return user;
 }
 
-/** Devuelve el usuario sólo si es un cliente. */
+/**
+ * Devuelve el usuario si puede reservar y tener "Mis turnos": clientes y
+ * dueños de negocio (un dueño también puede reservar en otros lugares).
+ */
 export async function requireClientUser() {
   const user = await getCurrentUser();
-  if (!user || user.role !== "CLIENTE") return null;
+  if (!user || (user.role !== "CLIENTE" && user.role !== "NEGOCIO")) return null;
   return user;
 }
 

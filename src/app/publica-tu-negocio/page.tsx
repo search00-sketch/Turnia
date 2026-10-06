@@ -29,7 +29,7 @@ export default function PublicaTuNegocioPage() {
             Publicá tu negocio en {APP_NAME}
           </h1>
           <p className="mt-4 text-neutral-500 max-w-xl mx-auto">
-            Creá tu cuenta gratis, cargá tus servicios y empezá a recibir reservas online hoy mismo.
+            Creá tu cuenta gratis (o sumá tu negocio a tu cuenta de cliente), cargá tus servicios y empezá a recibir reservas online hoy mismo.
           </p>
           <Link href="/registro-negocio" className="btn-primary mt-8 inline-flex">
             Crear mi negocio
